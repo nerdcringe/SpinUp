@@ -20,18 +20,19 @@ const double toDegrees = 180.0 / PI;
 
 const double WHEEL_CIRCUMFERENCE = 3.75 * PI;
 
+/*
 const double TL = 4.875; // left tracking wheel perpendicular distance from center
 const double TR = 4.875; // right tracking wheel perpendicular distance from center
 const double TB = 4.875; // back tracking wheel perpendicular distance from center
-
+*/
 
 double lastForwardReading = 0;
 double lastSidewaysReading = 0;
 double lastRotation = 0;
 
 
-double globalXPos = 0;
-double globalYPos = 0;
+double globalX = 0;
+double globalY = 0;
 
 double targetX = 0;
 double targetY = 0;
@@ -96,7 +97,13 @@ double keepAngleIn180(double a)
       a += 360;
     }
     return a;
-};
+}
+
+
+double distanceTo(double x1, double y1, double x2, double y2)
+{
+    return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) * 1.0);
+}
 
 
 
@@ -203,56 +210,111 @@ void stopBase()
 }
 
 
-float maxTurnPower = 20;
-float finalTurnPower = 15;
-float Kp = 0.3;
-float Ki = 0.02;
-float Kd = 0.075;
-
-float turnError = 0;
-float lastTurnError = 0;
-float turnIntegral = 0;
-float turnDerivative = 0;
-
-float integralPowerLimit =
-    40 / Ki;                   // little less than half power in pct (percent)
-float integralActiveZone = 15; // degrees b/c its a gyro turn doesnt use ticks
-
-float turnErrorThreshold = 0.75; // Exit loop when error is less than this
 
 
-void updateTurnPID()
+//float finalFwdSpeed = 15;
+
+float errorFwd = 0;
+float lastErrorFwd = 0;
+float integralFwd = 0;
+float derivativeFwd = 0;
+
+
+//float finalTurnSpeed = 15;
+
+float errorTurn = 0;
+float lastErrorTurn = 0;
+float integralTurn = 0;
+float derivativeTurn = 0;
+
+
+
+float fwdPID(double targetX, double targetY, double maxSpeed)
 {
+  float Kp = 0.3;
+  float Ki = 0.02;
+  float Kd = 0.075;
+  float integralPowerLimit =
+      40 / Ki;                   // little less than half power in pct (percent)
+  float integralActiveZone = 15;
+  float errorThreshold = 0.75; // Exit loop when error is less than this
 
-  turnError = targetAngle - getDegrees();
+  float speed = 0;
 
-  if (fabs(turnError) > turnErrorThreshold)
+  errorFwd = distanceTo(globalX, globalY, targetX, targetY);
+
+  if (fabs(errorFwd) > errorThreshold)
   {
-    if (fabs(turnError) < integralActiveZone) {
-      turnIntegral = turnIntegral + turnError;
+    if (fabs(errorFwd) < integralActiveZone) {
+      integralFwd = integralFwd + errorFwd;
     } else {
-      turnIntegral = 0;
+      integralFwd = 0;
     }
-    turnIntegral = keepInRange(turnIntegral, -integralPowerLimit, integralPowerLimit);
+    integralFwd = keepInRange(integralFwd, -integralPowerLimit, integralPowerLimit);
 
-    turnDerivative = turnError - lastTurnError;
+    derivativeFwd = errorFwd - lastErrorFwd;
 
-    finalTurnPower = ((Kp * turnError) + (Ki * turnIntegral) + (Kd * turnDerivative));
-    finalTurnPower =  keepInRange(finalTurnPower, -maxTurnPower, maxTurnPower);
-    Brain.Screen.printAt(210, 120, "P: %.1f, I: %.1f, D: %.1f", (Kp * turnError), (Ki * turnIntegral), (Kd * turnDerivative));
+    speed = (Kp * errorFwd) + (Ki * integralFwd) + (Kd * derivativeFwd);
+    speed =  keepInRange(speed, -maxSpeed, maxSpeed);
+    //Brain.Screen.printAt(210, 120, "P: %.1f, I: %.1f, D: %.1f    ", (Kp * errorFwd) + (Ki * integralFwd) + (Kd * derivativeFwd));
   }
   else
   {
-    turnIntegral = 0;
-    turnDerivative = 0;
-    finalTurnPower = 0;
-  Brain.Screen.printAt(210, 120, "PID Turn Completed             ");
+    integralFwd = 0;
+    derivativeFwd = 0;
+    speed = 0;
+    //Brain.Screen.printAt(210, 120, "PID Fwd Completed             ");
   }
-  lastTurnError = turnError;
+  lastErrorFwd = errorFwd;
   
-
-  vex::task::sleep(40);
+  return speed;
 }
+
+
+
+float turnPID(double target, double maxSpeed)
+{
+  float Kp = 0.3;
+  float Ki = 0.02;
+  float Kd = 0.075;
+  float integralPowerLimit =
+      40 / Ki;                   // little less than half power in pct (percent)
+  float integralActiveZone = 15; // degrees b/c its a gyro turn doesnt use ticks
+  float errorThreshold = 0.75; // Exit loop when error is less than this
+
+  float speed = 0;
+
+
+  errorTurn = target - getDegrees();
+
+  if (fabs(errorTurn) > errorThreshold)
+  {
+    if (fabs(errorTurn) < integralActiveZone) {
+      integralTurn = integralTurn + errorTurn;
+    } else {
+      integralTurn = 0;
+    }
+    integralTurn = keepInRange(integralTurn, -integralPowerLimit, integralPowerLimit);
+
+    derivativeTurn = errorTurn - lastErrorTurn;
+
+    speed = ((Kp * errorTurn) + (Ki * integralTurn) + (Kd * derivativeTurn));
+    speed =  keepInRange(speed, -maxSpeed, maxSpeed);
+    //Brain.Screen.printAt(210, 160, "P: %.1f, I: %.1f, D: %.1f    ", (Kp * errorTurn), (Ki * integralTurn), (Kd * derivativeTurn));
+  }
+  else
+  {
+    integralTurn = 0;
+    derivativeTurn = 0;
+    speed = 0;
+    //Brain.Screen.printAt(210, 160, "PID Turn Completed             ");
+  }
+  lastErrorTurn = errorTurn;
+
+  return speed;
+}
+
+
 
 
 
@@ -299,13 +361,13 @@ void updatePosition()
     // Accumulate each tiny change in position to the global position
 
     // Using trig, we can obtain the x and y components from the distance moved and current rotation
-    globalXPos += forwardChange * cos(currentRotation * toRadians);
-    globalYPos += forwardChange * sin(currentRotation * toRadians);
+    globalX += forwardChange * cos(currentRotation * toRadians);
+    globalY += forwardChange * sin(currentRotation * toRadians);
 
     // Position change due to moving sideways
     // Even if the robot doesn't drive sideways it still might jerk
-    globalXPos += sidewaysChange * sin(currentRotation * toRadians);
-    globalYPos += sidewaysChange * cos(currentRotation * toRadians);
+    globalX += sidewaysChange * sin(currentRotation * toRadians);
+    globalY += sidewaysChange * cos(currentRotation * toRadians);
 
     // Update the old values for the next update
     lastForwardReading = currentForward;
@@ -315,43 +377,72 @@ void updatePosition()
 
 
 
-
-
-
-// Simple constant speed function for testing (smooth speed added later)
-void turnToPoint(double turnSpeed)
+// Keep rotation within 180 degrees of the reference (robot) so it doesnt turn too much
+double angleWrap(double a, double referenceAngle)
 {
-  
-  drawPoint(targetX, targetY);
-
-  double relativeX = targetX - globalXPos; // error = desired - actual
-  double relativeY = targetY - globalYPos;
-  double angleToPosition;
-
-
-  //while (true)
+  while(a > referenceAngle + 180) // Subtract 360 if angle is too large
   {
-
-    double currentAngle = getDegrees();
-
-    // atan2 gives the angle to any position relative to the robot
-    angleToPosition = toDegrees * atan2(relativeY, relativeX);
-
-    // Prevent the robot from targeting a rotation over 180 degrees from its current rotation.
-    // If it's more than 180 it's faster to turn the other direction
-    double closestAngle = angleToPosition;
-    while(closestAngle > currentAngle + 180) // Subtract 360 if angle is too large
-    {
-      closestAngle -= 360;
-    }
-    while(closestAngle <= currentAngle - 180) // Add 360 if angle is too large
-    {
-      closestAngle += 360;
-    }
-    targetAngle = closestAngle;
-
-    Brain.Screen.printAt(210, 100, "closestAngle: %.1f   ", closestAngle);
+    a -= 360;
   }
+  while(a <= referenceAngle - 180) // Add 360 if angle is too large
+  {
+    a += 360;
+  }
+
+  return a;
+}
+
+
+double getAngleToPosition(double x, double y)
+{
+  double relativeX = x - globalX; // error = desired - actual
+  double relativeY = y - globalY;
+  
+  double currentAngle = getDegrees();
+
+  // atan2 gives the angle to any position relative to the robot
+  double angleToPosition = toDegrees * atan2(relativeY, relativeX);
+
+  // Prevent the robot from targeting a rotation over 180 degrees from its current rotation.
+  // If it's more than 180 it's faster to turn the other direction
+  angleToPosition = angleWrap(angleToPosition, currentAngle);
+  return angleToPosition;
+}
+
+
+
+void moveTo(double x, double y, double fwdSpeed, double turnSpeed)
+{
+  double finalFwdSpeed = 1;
+  double finalTurnSpeed = 1;
+
+  targetX = x;
+  targetY = y;
+
+  // Run while moving forward/turning
+  while (finalFwdSpeed != 0 || finalTurnSpeed != 0)
+  {
+    finalFwdSpeed = fwdPID(targetX, targetY, fwdSpeed);
+    finalTurnSpeed = turnPID(targetAngle, turnSpeed);
+
+    // don't change angle when close so the robot doesn't run in circles
+    // could get stuck if at a bad angle tho. maybe make a timeout or change the threshold (not too much)
+    if (errorFwd > 1)
+    {
+      targetAngle = getAngleToPosition(targetX, targetY);
+    }
+
+    /*if (errorTurn > 180) // slow down fwd if need to turn a lot
+    {
+      finalFwdSpeed *= 0.75f;
+    }*/
+
+    leftDrive(finalFwdSpeed + finalTurnSpeed);
+    rightDrive(finalFwdSpeed - finalTurnSpeed);
+    Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetAngle);
+  }
+
+  Brain.Screen.printAt(210, 120, "Done moving                    ");
 }
 
 
@@ -376,13 +467,16 @@ void draw()
         Brain.Screen.drawRectangle(x * tile_size + 15, y * tile_size + 15, tile_size, tile_size); // fill entire screen
       }
     }
+    Brain.Screen.printAt(170, 100, "+x");
+    Brain.Screen.printAt(20, 100, "-x");
+    Brain.Screen.printAt(110, 30, "+y");
+    Brain.Screen.printAt(110, 190, "-y");
     
     // Draw robot
     Brain.Screen.setFillColor(white);
     Brain.Screen.setPenWidth(0);
-
-    double draw_pos_x = ((globalXPos/24) * tile_size) + 105;
-    double draw_pos_y = ((-globalYPos/24) * tile_size) + 105;
+    double draw_pos_x = ((globalX/24) * tile_size) + 105;
+    double draw_pos_y = ((-globalY/24) * tile_size) + 105; // make y negative because down is positive on the screen
 
      // Position of circle indicates the position found by odometry
     Brain.Screen.drawCircle(draw_pos_x, draw_pos_y, 6);
@@ -393,9 +487,39 @@ void draw()
     Brain.Screen.drawLine(draw_pos_x,
                           draw_pos_y,
                           draw_pos_x + cos(getDegrees() * toRadians) * 20,
-                          draw_pos_y - sin(getDegrees() * toRadians) * 20);
-                          // make sine for y-position negative because (0, 0) on screen is top left, so bigger # is lower on screen
+                          draw_pos_y - sin(getDegrees() * toRadians) * 20); // make y negative because down is positive on the screen
+    drawPoint(targetX, targetY);
 }
+
+void debug()
+{
+  
+    Brain.Screen.setFillColor(color(10, 80, 30)); // green in rgb
+    Brain.Screen.setPenColor(white);
+    Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
+    Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
+    Brain.Screen.printAt(210, 70, "Encoders: (%.1f, %.1f)     ", getSidewaysReading(), getForwardReading());
+
+    if (Brain.Screen.pressing())
+    {
+      targetX = screenToGlobalX(Brain.Screen.xPosition());
+      targetY = screenToGlobalY(Brain.Screen.yPosition());
+    }
+}
+
+int backgroundTasks()
+{
+  while (true)
+  {
+    updatePosition();
+    debug();
+    draw();
+    task::sleep(15);
+  }
+  return 0;
+}
+
+
 
 int main()
 {
@@ -413,52 +537,21 @@ int main()
     Brain.Screen.printAt(210, 50, "Rot: CALLIBRATING");
   }
 
+  task a (backgroundTasks);
+
+  moveTo(10, 10, 25, 20);
 
   while (1)
   {
-    updatePosition();
 
-    draw();
-
-    Brain.Screen.setFillColor(color(10, 80, 30)); // green in rgb
-    Brain.Screen.setPenColor(white);
-    Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalXPos, globalYPos);
-    Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
-    Brain.Screen.printAt(210, 70, "Encoders: (%.1f, %.1f)     ", getSidewaysReading(), getForwardReading());
-
-    if (Brain.Screen.pressing())
-    {
-      targetX = screenToGlobalX(Brain.Screen.xPosition());
-      targetY = screenToGlobalY(Brain.Screen.yPosition());
-    }
-    turnToPoint(10);
+    /*turnToPoint(10);
 
     Brain.Screen.printAt(210, 120, "Desired: (%.1f, %.1f)", targetX, targetY);
 
+    updateFwdPID();
+    updateTurnPID();*/
 
-
-    /*error = targetAngle - getDegrees();
-
-    if (fabs(error) < integralActiveZone && error != 0) {
-      integral = integral + error;
-    } else {
-      integral = 0;
-    }
-    integral = keepInRange(integral, -integralPowerLimit, integralPowerLimit);
-
-    derivative = error - lastError;
-    lastError = error;
-
-    float turnPower = ((Kp * error) + (Ki * integral) + (Kd * derivative));
-    turnPower =  keepInRange(turnPower, -maxTurnPower, maxTurnPower);
-
-    Brain.Screen.printAt(210, 140, "P: %.2f, I: %.2f, D: %.2f", (Kp * error), (Ki * integral), (Kd * derivative));*/
-
-    
-    updateTurnPID();
-
-
-    double driveSpeed = 0;
+    /*double driveSpeed = 0;
     if (controllerPrim.ButtonUp.pressing())
     {
       driveSpeed = 10;
@@ -468,8 +561,11 @@ int main()
       driveSpeed = -10;
     }
 
-    leftDrive(driveSpeed + finalTurnPower);
-    rightDrive(driveSpeed - finalTurnPower);
+    leftDrive(driveSpeed + finalFwdPower + finalTurnPower);
+    rightDrive(driveSpeed + finalFwdPower - finalTurnPower);*/
+
+
+
     /*if (controllerPrim.ButtonUp.pressing())
     {
       drive(10);
