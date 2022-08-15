@@ -17,7 +17,8 @@ using namespace vex;
   #define PI 3.14159265
   const double toRadians = PI / 180.0; // multiply degrees by this
   const double toDegrees = 180.0 / PI;
-  const double WHEEL_CIRCUMFERENCE = 3.75 * PI;
+  const double WHEEL_CIRCUMFERENCE = 3.25 * PI;
+  const double TRACKING_CIRCUMFERENCE = 2.75 * PI;
 
   // PID VARS
   float errorFwd = 0;
@@ -34,6 +35,10 @@ using namespace vex;
   // ODOM VARS
   double lastForwardReading = 0;
   double lastSidewaysReading = 0;
+
+  double lastRReading = 0;
+  double lastLReading = 0;
+  double lastSReading = 0;
   double lastRadians = 0;
 
 
@@ -59,6 +64,51 @@ using namespace vex;
 
 
 
+  const double Sl = 4.875; // left tracking wheel perpendicular distance from center
+  const double Sr = 4.875; // right tracking wheel perpendicular distance from center
+  const double Ss = -0.75; // back tracking wheel perpendicular distance from center
+
+
+
+  double lastTheta = 0;
+
+
+
+  float lastLeftPos = 0;
+  float lastRightPos = 0;
+  float lastSidePos = 0;
+
+  float deltaTheta = 0;
+  float thetaNew = 0;
+  float thetaM = 0;
+
+
+  float curLeft = 0;
+  float curRight = 0;
+  float curSide = 0;
+
+  float leftAtReset = 0;
+  float rightAtReset = 0;
+  float thetaReset = 0;
+
+  float deltaLeft = 0;
+  float deltaRight = 0;
+  float deltaSide = 0;
+
+  //float deltaLr = 0;
+  //float deltaRr = 0;
+
+  float deltaX = 0;
+  float deltaY = 0;
+
+
+  float theta = 0;
+  float radius = 0;
+
+
+
+
+
 // DEVICES ///////////////////////////////////
 
   motor LFBASE(PORT1, false); // for new bot port 15 && for old bot port 11
@@ -75,8 +125,8 @@ using namespace vex;
 
   triport Triport(PORT22); // Get reference for three-wire ports on brain
   encoder encoderL(Triport.A); // left tracking wheel
-  encoder encoderR(Triport.E); // right tracking wheel
-  encoder encoderB(Triport.C); // back tracking wheel. Testing to see if we need this to deal with drift
+  encoder encoderR(Triport.C); // right tracking wheel
+  encoder encoderS(Triport.F); // sideways tracking wheel. Testing to see if we need this to deal with drift
 
 
   controller controllerPrim(controllerType::primary);
@@ -85,17 +135,35 @@ using namespace vex;
 
 // MATH FUNCTIONS /////////////////////////////////////////////
 
+
+
+  // Convert distance to move to ticks to rotate base motors
+  double inchesToTicks(double inches)
+  {
+    return inches * (360 / WHEEL_CIRCUMFERENCE);
+  }
+
+  double ticksToInches(double ticks)
+  {
+    return ticks * (WHEEL_CIRCUMFERENCE / 360);
+  }
+
+
   // Convert between inches and revolutions of tracking wheels
   // Revolutions are simpler than degrees for non-motor encoders
   double inchesToRevs(double inches)
   {
-    return inches / WHEEL_CIRCUMFERENCE;
+    return inches / TRACKING_CIRCUMFERENCE;
   }
 
   double revsToInches(double revs)
   {
-    return revs * WHEEL_CIRCUMFERENCE;
+    return revs * TRACKING_CIRCUMFERENCE;
   }
+
+
+
+
 
   double keepInRange(double n, double bottom, double top) {
     if (n < bottom)
@@ -176,26 +244,48 @@ using namespace vex;
   }
 
 
-  double getGlobalX()
-  {
-    return globalX + xOffset;
-  }
-
-  double getGlobalY()
-  {
-    return globalY + yOffset;
-  }
-
-
   double getForwardReading() {
-    double revs = encoderR.rotation(rev)*10;//(encoderL.rotation(rev) + encoderR.rotation(rev)) / 2;
+    double revs = (encoderL.rotation(rev) + encoderR.rotation(rev)) / 2;
+    return revsToInches(revs);
+  }
+  double getSidewaysReading() {
+    double revs = encoderS.rotation(rev);
     return revsToInches(revs);
   }
 
-  double getSidewaysReading() {
-    //return ticksToInches(encoderB.rotation(deg));
-  return revsToInches(encoderB.rotation(rev)*10);
+
+  double getRightReading() {
+    /*double ticks = ( RFBASE.rotation(deg) + RBBASE.rotation(deg) ) / 2;
+    return ticksToInches(ticks);*/
+    return -revsToInches(encoderR.rotation(rev));;
   }
+
+  double getLeftReading() {
+    return revsToInches(encoderL.rotation(rev));
+    /*
+    double ticks = ( LFBASE.rotation(deg) + LBBASE.rotation(deg) ) / 2;
+    return ticksToInches(ticks);*/
+  }
+
+  double getSideReading() {
+    //return ticksToInches(encoderB.rotation(deg));
+  return revsToInches(encoderS.rotation(rev));
+  }
+
+/*
+  double getRightMotors() {
+    double ticks = ( RFBASE.rotation(deg) + RBBASE.rotation(deg) ) / 2;
+    return ticksToInches(ticks);
+    //encoderR.rotation(deg);//revsToInches(encoderR.rotation(rev));;
+  }
+
+  double getLeftMotors() {
+    //return revsToInches(encoderL.rotation(rev));
+    
+    double ticks = ( LFBASE.rotation(deg) + LBBASE.rotation(deg) ) / 2;
+    return ticksToInches(ticks);
+  }
+*/
 
 
   double getDegrees()
@@ -206,14 +296,14 @@ using namespace vex;
 
   double getRadians()
   {
-    return getDegrees() * toRadians;
+    return getDegrees()*toRadians;
   }
 
 
   double getAngleToPosition(double x, double y)
   {
-    double relativeX = x - getGlobalX(); // error = desired - actual
-    double relativeY = y - getGlobalY();
+    double relativeX = x - globalX; // error = desired - actual
+    double relativeY = y - globalY;
     
     double currentAngle = getDegrees();
 
@@ -271,7 +361,7 @@ using namespace vex;
 
   // Run one odometry calculation to update global position
   // Run in a parallel task during auton
-  void updatePosition()
+  void updatePositionOld()
   {
       // Get the current encoder distances and rotation 
       double currentForward = getForwardReading();
@@ -329,52 +419,50 @@ using namespace vex;
   }
 
 
-
-  // New tracking algorithm
-  void updatePositionNew()
+  void updatePositionGood()
   {
-      // Get the current encoder distances and rotation 
-      double currentForward = getForwardReading();
-      double currentSideways = getSidewaysReading();
-      double currentRadians = getRadians();
 
-      // Get the change in encoder values since last update
-      double forwardChange = currentForward - lastForwardReading;
-      double sidewaysChange = currentSideways - lastSidewaysReading;
-      double angleChange = currentRadians - lastRadians;
+    curLeft = getLeftReading();
+    curRight = getRightReading(); //step 1
+    curSide = getSideReading();
 
-      double localX;
-      double localY;
+    deltaLeft = (curLeft - lastLeftPos);
+    deltaRight = (curRight - lastRightPos);
+    deltaSide = (curSide - lastSidePos);
 
-      // Calculate how much moved relative to the robot's direction
-       // normal when angle is not changing
-      if (fabs(angleChange) < 0.0001)
-      {
-        localX = forwardChange;
-        localY = sidewaysChange;
-      }
-      else // Account for encoder offsets when rotating
-      {
-        double multiplier = 2 * sin(angleChange / 2);
-        localX = multiplier * ( (forwardChange/angleChange) + TR );
-        localY = multiplier * ( (sidewaysChange/angleChange) + TB );
-        //Brain.Screen.setPenColor(white);
-      }
-      //Brain.Screen.printAt(210, 200, "%.16f                              ", angleChange);
+    lastLeftPos = curLeft;
+    lastRightPos = curRight; //step 3
+    lastSidePos = curSide;
 
-      // Accumulate tiny changes in position to the total global position
-      globalX += localX * cos(currentRadians);
-      globalY += localX * sin(currentRadians);
+    double intertialRadians = getRadians();
+
+    // Angle of arc of movement (different than inertial angle)
+    thetaNew = (curLeft - curRight) / (Sl + Sr);
+    deltaTheta = (deltaLeft - deltaRight)/ (Sl + Sr);
+
       
-      globalX += localY * sin(currentRadians);
-      globalY += localY * cos(currentRadians);
-      
-      lastForwardReading = currentForward;
-      lastSidewaysReading = currentSideways;
-      lastRadians = currentRadians;
+    if (deltaTheta == 0)
+    {
+      deltaX = (deltaRight + deltaLeft) / 2;
+      //deltaY = deltaSide;
+      Brain.Screen.printAt(200, 180, "deltaTheta: %f", deltaX);
+    }
+    else
+    {
+      deltaX = 2*sin(deltaTheta/2) * ((deltaRight/deltaTheta) + Sr);
+      //deltaY = 2*sin(deltaTheta/2) * ((deltaSide/deltaTheta) + Ss); //step 8
+    }
+    
+    globalX += deltaX * cos(intertialRadians);
+    globalY += deltaX * sin(intertialRadians);
+    
+    //globalX += deltaY * sin(intertialRadians);
+    //globalY += deltaY * cos(intertialRadians);
+
+    lastTheta = thetaNew;
   }
 
-
+  
 
 
   float odomFwdPID(double target, double maxSpeed)
@@ -417,7 +505,6 @@ using namespace vex;
     
     return speed;
   }
-
 
 
   float odomTurnPID(double target, double maxSpeed)
@@ -540,7 +627,7 @@ using namespace vex;
       // set the target global variables to reflect the given parameters
       targetX = x;
       targetY = y;
-      targetDistance = distanceTo(targetX, targetY, getGlobalX(), getGlobalY());
+      targetDistance = distanceTo(targetX, targetY, globalX, globalY);
 
       // Only update the angle and distance when far away
       // so the robot doesn't run in circles trying to pinpoint the exact location
@@ -641,8 +728,8 @@ using namespace vex;
       // Draw robot
       Brain.Screen.setFillColor(white);
       Brain.Screen.setPenWidth(0);
-      double draw_pos_x = ((getGlobalX()/24) * tile_size) + 105;
-      double draw_pos_y = ((-getGlobalY()/24) * tile_size) + 105; // make y negative because down is positive on the screen
+      double draw_pos_x = ((globalX/24) * tile_size) + 105;
+      double draw_pos_y = ((-globalY/24) * tile_size) + 105; // make y negative because down is positive on the screen
 
       // Position of circle indicates the position found by odometry
       Brain.Screen.drawCircle(draw_pos_x, draw_pos_y, 6);
@@ -664,19 +751,20 @@ void debug()
   
     Brain.Screen.setFillColor(color(10, 80, 30)); // green in rgb
     Brain.Screen.setPenColor(white);
-    Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", getGlobalX(), getGlobalY());
+    Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
     Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
-    Brain.Screen.printAt(210, 70, "Encoders: (%.1f, %.1f)     ", getSidewaysReading(), getForwardReading());
+    Brain.Screen.printAt(210, 70, "Enc: L: %.1f R: %.1f S: %.1f    ", getLeftReading(), getRightReading(), getSideReading());
+    //Brain.Screen.printAt(210, 90, "Mot: L: %.1f R: %.1f    ", getLeftMotors(), getRightMotors());
 }
 
 int backgroundTasks()
 {
   while (true)
   {
-    updatePositionNew();
+    updatePositionGood();
     debug();
     draw();
-    task::sleep(5);
+    task::sleep(10);
   }
   return 0;
 }
@@ -719,12 +807,11 @@ int main()
   {
     
 
-
     if (Brain.Screen.pressing())
     {
       targetX = screenToGlobalX(Brain.Screen.xPosition());
       targetY = screenToGlobalY(Brain.Screen.yPosition());
-      turnTo(targetX, targetY, 20);
+      //turnTo(targetX, targetY, 20);
     }
     
     /*turnToPoint(10);
@@ -749,7 +836,7 @@ int main()
 
 
 
-      /*if (controllerPrim.ButtonUp.pressing())
+      if (controllerPrim.ButtonUp.pressing())
       {
         drive(10);
       }
@@ -757,10 +844,20 @@ int main()
       {
         drive(-10);
       }
+      else if (controllerPrim.ButtonLeft.pressing())
+      {
+        leftDrive(-10);
+        rightDrive(10);
+      }
+      else if (controllerPrim.ButtonRight.pressing())
+      {
+        leftDrive(10);
+        rightDrive(-10);
+      }
       else
       {
         stopBase();
-      }*/
+      }
 
     task::sleep(5);
   }
