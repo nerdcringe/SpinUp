@@ -15,19 +15,19 @@ using namespace vex;
 // VARIABLES ////////////////////////////////
 
   #define PI 3.14159265
-  const double toRadians = PI / 180.0; // multiply degrees by this
-  const double toDegrees = 180.0 / PI;
-  const double WHEEL_CIRCUMFERENCE = 3.25 * PI;
-  const double TRACKING_CIRCUMFERENCE = 2.75 * PI;
+  const double toRadians = PI / 180.0; // multiply degrees by this to convert to radians
+  const double toDegrees = 180.0 / PI; // multiply radians by this to convert to degrees
+  const double WHEEL_CIRCUMFERENCE = 3.25 * PI; // Circumferebce of the powered wheels (diameter * PI)
+  const double TRACKING_CIRCUMFERENCE = 2.75 * PI; // Circumferebce of the tracking wheels (diameter * PI)
 
 
   // PID VARS
-  float fwd_error = 0;
+  float fwd_error = 0; // Distance from the target forward distance
   float fwd_lastError = 0;
-  float fwd_integral = 0;
-  float fwd_derivative = 0;
+  float fwd_integral = 0; // integral accumulates the error, speeding up if target is not reached fast enough
+  float fwd_derivative = 0; // Derivative smooths out any oscillations at the end of the movement
 
-  float turn_error = 0;
+  float turn_error = 0; // Relative angle from the target rotation (degrees)
   float turn_lastError = 0;
   float turn_integral = 0;
   float turn_derivative = 0;
@@ -35,84 +35,85 @@ using namespace vex;
 
   // ODOM VARS
 
-  double lastForwardReading = 0;
-  double lastSidewaysReading = 0;
-
-  double lastRReading = 0;
-  double lastLReading = 0;
-  double lastSReading = 0;
-  double lastRadians = 0;
-
+  // *** Current global position on the field ***
+  // These values always start at (0, 0) so everything is relative to the starting location
   double globalX = 0;
   double globalY = 0;
 
-  double targetX = 0;
-  double targetY = 0;
-  double targetDistance = 0; // current distance from target position
-  double targetAngle = 0;
-
-  // tracking wheel perpendicular distances from center
+  // tracking wheel perpendicular distances from center.
+  // Seen at page 4 of http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf
   const double leftOffset = 4.875; // left
   const double rightOffset = 4.875; // right
-  const double sideOffset = -0.75; // sideways
-
-  float lastLeftPos = 0;
-  float lastRightPos = 0;
-  float lastSidePos = 0;
-
-  float deltaTheta = 0;
-  float thetaNew = 0;
+  const double sideOffset = 0.25;//-0.75; // sideways
 
   float curLeft = 0;
   float curRight = 0;
   float curSide = 0;
+  float curTheta = 0;
 
-  float leftAtReset = 0;
-  float rightAtReset = 0;
-  float thetaReset = 0;
+  float lastLeftPos = 0;
+  float lastRightPos = 0;
+  float lastSidePos = 0;
+  double lastInertialRadians = 0;
 
+  // Change in positions since last position update
   float deltaLeft = 0;
   float deltaRight = 0;
-  //float deltaSide = 0;
+  float deltaSide = 0;
+  float deltaTheta = 0;
 
+  // Distance moved relative to the bot's direction
   float deltaDistance;
-  //float deltaDistanceSideways;
+  float deltaDistanceSideways;
 
   // Accumulates the distance traveled during the current movement (replaces motor encoders)
   // Check if this is above a certain amount to start parallel tasks after moving a certain distance
   float totalDistance = 0;
 
+  
+  // Position and angle to the current target point
+  double targetX = 0;
+  double targetY = 0;
+  double targetDistance = 0; // current distance from target point
+  double targetDeg = 0;
+
 
 
 // DEVICES ///////////////////////////////////
 
-  motor LFBASE(PORT1, false); // for new bot port 15 && for old bot port 11
+
+  // motors //
+
+  motor LFBASE(PORT1, false);
   //motor LMBASE(PORT2); // Left mid
   motor LBBASE(PORT19, false);
 
-  motor RFBASE(PORT13, true);       // true for old bot
+  motor RFBASE(PORT13, true);
   //motor RMBASE(PORT14,true); // Right mid
-  motor RBBASE(PORT18, true);       // true for old bot
+  motor RBBASE(PORT18, true);
 
 
+  // sensors & more //
 
   inertial INERTIAL(PORT14);
 
   triport Triport(PORT22); // Get reference for three-wire ports on brain
   encoder encoderL(Triport.A); // left tracking wheel
   encoder encoderR(Triport.C); // right tracking wheel
-  encoder encoderS(Triport.F); // sideways tracking wheel. Testing to see if we need this to deal with drift
+
+  triport TriportExt(PORT9); // Get reference for three wire extender
+  encoder encoderS(TriportExt.A); // sideways tracking wheel. Testing to see if we need this to deal with drift
 
 
   controller controllerPrim(controllerType::primary);
 
 
 
+
 // MATH FUNCTIONS /////////////////////////////////////////////
 
 
-
-  // OLD STUFF FOR MOTOR ENCODERS
+  // OLD FUNCTIONS FOR MOTOR ENCODERS
   /*
   // Convert distance to move to ticks to rotate base motors
   double inchesToTicks(double inches)
@@ -126,20 +127,18 @@ using namespace vex;
   }*/
 
 
-  // Convert between inches and ticks of tracking wheels
+  // Convert between inches and ticks of tracking wheels using dimensional analysis
   double inchesToTicks(double inches)
   {
-    return inches * (360/ TRACKING_CIRCUMFERENCE);
+    return inches * (360 / TRACKING_CIRCUMFERENCE);
   }
 
-  double ticksToInches(double revs)
+  double ticksToInches(double ticks)
   {
-    return revs * (TRACKING_CIRCUMFERENCE / 360);
+    return ticks * (TRACKING_CIRCUMFERENCE / 360);
   }
 
-
-
-
+  // Return the number clamped between two numbers
   double keepInRange(double n, double bottom, double top) {
     if (n < bottom)
       n = bottom;
@@ -149,28 +148,15 @@ using namespace vex;
   }
 
 
+  // Find the distance between two points
   double distanceTo(double x1, double y1, double x2, double y2)
   {
       return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) * 1.0);
   }
 
 
-  // Keep an angle in -180 to 180 range
-  double keepAngleIn180(double a)
-  {
-    while(a > 180)
-      {
-        a -= 360;
-      }
-      while(a < -180)
-      {
-        a += 360;
-      }
-      return a;
-  }
-
-
-  // Keep rotation within 180 degrees of the reference (robot) so it doesnt turn too much
+  // Keep rotation within 180 degrees of the reference angle (current inertial sensor angle)
+  // If an angle is over 180 degrees away, this makes the bot turn the other direction because it is faster
   double angleWrap(double a, double referenceAngle)
   {
     while(a > referenceAngle + 180) // Subtract 360 if angle is too large
@@ -182,7 +168,7 @@ using namespace vex;
       a += 360;
     }
 
-    return a;
+    return a; // Return the new closest angle
   }
 
 
@@ -190,7 +176,7 @@ using namespace vex;
 
 // SENSOR FUNCTIONS ///////////////////////////////////////////////////////
 
-  // Don't really need motor encoder functions as tracking wheels can do it more accurately and simpler
+  // Don't really need motor encoder functions as tracking wheels can do it more accurately
 /*
   double getMotorPos()
   {
@@ -220,11 +206,14 @@ using namespace vex;
   }*/
 
 
+  // Return the total distance accumulated since the start of the movement. Used to schedule parallel tasks.
+  // If the bot is moving 10 in but you want something to happen when at 5 in, check if this value reaches 5 in the separate task
   double getTotalDistance()
   {
     return totalDistance;
   }
 
+  // Clear the total distance accumulated in the beginning of each movement
   void resetTotalDistance()
   {
     totalDistance = 0;
@@ -237,12 +226,13 @@ using namespace vex;
   }
 
 
+  // Obtain the current values of the tracking wheel encoders
   double getRightReading() {
     return -ticksToInches(encoderR.rotation(deg)); // negative because right encoder is backwards
   }
 
   double getLeftReading() {
-    return ticksToInches(encoderL.rotation(deg));
+    return -ticksToInches(encoderL.rotation(deg));
   }
 
   double getSideReading() {
@@ -250,37 +240,46 @@ using namespace vex;
   }
 
 
-
+  // Obtain the current inertial sensor rotation relative to the starting rotation
   double getDegrees()
   {
     return -INERTIAL.rotation(deg); // Important that this is negative
-    // Positive angles are CCW (left) and negative angles are CW (right)
+    // This makes positive angles CCW (left) and negative angles CW (right)
+    // 0 degrees is on the positive x-axis
   }
 
+
+  // Obtain the current inertial sensor rotation in radians
+  // A full rotation is 2 PI instead of 360
+  // Trig functions natively use radians
   double getRadians()
   {
     return getDegrees()*toRadians;
   }
 
 
-  // positive angles are left, negative is right. 0 degrees starts at positive x axis
-  double getAngleToPosition(double x, double y)
+
+  // Obtain the angle to any position from the robot's current position
+  double getDegToPosition(double x, double y)
   {
     double relativeX = x - globalX;
     double relativeY = y - globalY;
 
-    // atan2 gives the angle to any position relative to the robot's position
-    double angleToPosition = toDegrees * atan2(relativeY, relativeX);
+    // atan2 gives the angle between two points
+    double degToPosition = toDegrees * atan2(relativeY, relativeX);
 
     // Prevent the robot from targeting a rotation over 180 degrees from its current rotation.
     // If it's more than 180 it's faster to turn the other direction
-    angleToPosition = angleWrap(angleToPosition, getDegrees());
+    degToPosition = angleWrap(degToPosition, getDegrees());
     
-    return angleToPosition;
+    return degToPosition;
   }
 
 
-// MOVEMENT FUNCTIONS ////////////////////////////
+
+// STANDARD MOVEMENT ////////////////////////////
+
+  // Set the speeds of different sides of the base
   void leftDrive(double power)
   {
     LFBASE.spin(fwd, power, pct);
@@ -300,7 +299,6 @@ using namespace vex;
     leftDrive(power);
     rightDrive(power);
   }
-
 
   void stopBase()
   {
@@ -323,47 +321,6 @@ using namespace vex;
 
 // ODOMETRY /////////////////////////////////////////////////////////////////////////////
 
-  // Run one odometry calculation to update global position
-  // Run in a parallel task during auton
-  void updatePositionOld()
-  {
-      // Get the current encoder distances and rotation 
-      double currentForward = getRightReading();
-      double currentSideways = getSideReading();
-      double currentRadians = getRadians();
-
-      // Get the change in encoder values since last update
-      double forwardChange = currentForward - lastForwardReading;
-      double sidewaysChange = currentSideways - lastSidewaysReading;
-                                                                    //double rotationChange = currentRotation - lastRotation;
-
-      // Calculate global position change due to going forward/backward
-      // For example, this is what the forward calculation looks like
-      
-
-      // Accumulate each tiny change in position to the global position
-      // Using trig, we can obtain the x and y components from the distance moved and current rotation
-      globalX += forwardChange * cos(currentRadians);
-      globalY += forwardChange * sin(currentRadians);
-
-      // global position is offset by a few inches when rotated at certain angles
-      // cancel out these offsets to keep tracking center stationary when rotating
-      // position may still vary by 0.5 inches
-      /*xOffset = 2.4 * sin(currentRadians);
-      yOffset = -6 * (cos(currentRadians) - 1) * 0.5;*/
-
-      // Position change due to moving sideways
-      // Even if the robot doesn't drive sideways it still might jerk
-      //globalX += sidewaysChange * sin(currentRotation * toRadians);
-      //globalY += sidewaysChange * cos(currentRotation * toRadians);
-
-      // Update the old values for the next update
-      lastForwardReading = currentForward;
-      lastSidewaysReading = currentSideways;
-      //lastRadians = currentRotation;
-  }
-
-
 
   // Run one odometry calculation to update global position
   // Run in a parallel task during auton
@@ -372,29 +329,24 @@ using namespace vex;
     // Get current values of encoders
     curLeft = getLeftReading();
     curRight = getRightReading();
-    //curSide = getSideReading();
+    curSide = getSideReading();
 
     // Get change in encoder values
     deltaLeft = (curLeft - lastLeftPos);
     deltaRight = (curRight - lastRightPos);
-    //deltaSide = (curSide - lastSidePos);
-
-    // Save the current encoder values to use for next update
-    lastLeftPos = curLeft;
-    lastRightPos = curRight;
-    //lastSidePos = curSide;
+    deltaSide = (curSide - lastSidePos);
 
     // Angle of arc of movement (different than inertial angle)
     // The center of the arc is an arbitrary distance away
     // The arc can be seen at the pilons document http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf (page 5)
-    thetaNew = (curLeft - curRight) / (leftOffset + rightOffset);
+    curTheta = (curLeft - curRight) / (leftOffset + rightOffset); // in radians
     deltaTheta = (deltaLeft - deltaRight)/ (leftOffset + rightOffset);
 
     // If not turning deltaX is the distance moved forward
     if (deltaTheta == 0)
     {
       deltaDistance = (deltaRight + deltaLeft) / 2; // average of change in both encoders
-      //deltaY = deltaSide;
+      //deltaDistanceSideways = deltaSide;
     }
     else // adjust for the offset of right encoder from center using the arc
     {
@@ -404,82 +356,109 @@ using namespace vex;
       // Get the chord length (straight line distance between ends of the arc) using 2r * sin(theta/2)
       deltaDistance = 2 * centerRadius * sin(deltaTheta/2);
 
-      // Add the right encoder's offset to the right encoder's radius from the center of the arc to get the radius of the center of the bot
-      // This radius is multiplied by 2sin(deltaTheta) is the length of the chord of the arc
-      //deltaX = 2*sin(deltaTheta/2) * ((deltaRight/deltaTheta) + Sr);
-      //deltaY = 2*sin(deltaTheta/2) * ((deltaSide/deltaTheta) + Ss);
+      /* Sideways motion is not necessary for tank drive bots because they can't shift sideways
+      // Do the same to account for sideways motion
+      double centerRadiusSideways = deltaSide/deltaTheta + sideOffset;
+      deltaDistanceSideways = 2 * centerRadiusSideways * sin(deltaTheta/2);*/
     }
     
-    // Accumulate the tiny change in position to the global position
-    // Using trig, we can obtain the x and y components from the distance moved and current rotation (converting polar coordinates to x,y)
-    double intertialRadians = getRadians();
-    globalX += deltaDistance * cos(intertialRadians); // x uses cosine
-    globalY += deltaDistance * sin(intertialRadians); // y uses sine
-    
-    //globalX += deltaDistanceSideways * sin(intertialRadians);
-    //globalY += deltaDistanceSideways * cos(intertialRadians);
+    // Estimate the average angle between the last and current position
+    double curInertialRadians = getRadians();
+    double averageRadians = ( curInertialRadians + lastInertialRadians ) / 2;
 
-    totalDistance += deltaDistance; // accumulate the distance to the total distance
+
+    // Accumulate the tiny change in position to the global position
+    // Using trig, we can obtain the x and y components from the distance moved and the direction it moved in
+    // It is converting polar coordinates (radius, angle) to (x, y) coordinates
+    globalX += deltaDistance * cos(averageRadians); // x uses cosine
+    globalY += deltaDistance * sin(averageRadians); // y uses sine
+    
+    //globalX += deltaDistanceSideways * sin(averageRadians);
+    //globalY += deltaDistanceSideways * cos(averageRadians);
+
+    totalDistance += deltaDistance; // Keep track of accumulated distance for scheduling parallel tasks
+
+    // Save the current encoder values and rotation to use for the next update
+    lastLeftPos = curLeft;
+    lastRightPos = curRight;
+    lastSidePos = curSide;
+    lastInertialRadians = curInertialRadians;
   }
 
   
 
+  // Run one cycle of PID to obtain the speed to move to the target
+  // Instead of having separate loops for moving forward and turning,
+  // odometry movement uses these calculated PID speeds to move forward and turn simultaneously
   float odomFwdPID(double target, double maxSpeed)
   {
-    float Kp = 1;
-    float Ki = 0.005;
-    float Kd = 0.175;
-    float integralPowerLimit =
-        40 / Ki;                   // little less than half power in pct (percent)
-    float integralActiveZone = 15;
+    // PID constants to tune how much each variable affects the final speed
+    float Kp = 1; // Proportional makes the speed proportional to the error
+
+    float Ki = 0.005; // Integral accumulates error to the speed over time
+    // Integral is often used to to overcome friction at the end due to derivative
+
+    float Kd = 0.175; // Derivative slows down the speed if it is too fast
+
+
+    // Don't let the integral term have too much control
+    float integralPowerLimit = 40 / Ki; // little less than half power
+    float integralActiveZone = 15; // Only start accumulating integral
     float errorThreshold = 0.25; // Exit loop when error is less than this
 
     float speed = 0;
 
-    fwd_error = target;
+    fwd_error = target; // Error is the distance from the target
 
-    if (fabs(fwd_error) > errorThreshold)
+    if (fabs(fwd_error) > errorThreshold) // Check if error is over the acceptable threshold
     {
-      if (fabs(fwd_error) < integralActiveZone) {
-        fwd_integral = fwd_integral + fwd_error;
-      } else {
+      // Only accumulate error if error is within active zone
+      if (fabs(fwd_error) < integralActiveZone)
+      {
+        fwd_integral = fwd_integral + fwd_error; // Accumulate the error to the integral
+      }
+      else
+      {
         fwd_integral = 0;
       }
-      fwd_integral = keepInRange(fwd_integral, -integralPowerLimit, integralPowerLimit);
+      fwd_integral = keepInRange(fwd_integral, -integralPowerLimit, integralPowerLimit); // Limit the integral
 
-      fwd_derivative = fwd_error - fwd_lastError;
+      fwd_derivative = fwd_error - fwd_lastError; // Derivative is the change in error since the last PID cycle
 
-      speed = (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative);
-      speed =  keepInRange(speed, -maxSpeed, maxSpeed);
+      speed = (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative); // Multiply each variable by its tuning constant
+      speed =  keepInRange(speed, -maxSpeed, maxSpeed); // Restrict the absolute value of speed to the maximum allowed value
+
       Brain.Screen.printAt(210, 140, "P: %.1f, I: %.1f, D: %.1f    ", (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative));
     }
     else
     {
+      // If error threshold has been reached, set the speed to 0
       fwd_integral = 0;
       fwd_derivative = 0;
       speed = 0;
       Brain.Screen.printAt(210, 140, "PID Fwd Completed             ");
     }
-    fwd_lastError = fwd_error;
+    fwd_lastError = fwd_error; // Keep track of the error since last cycle
     
-    return speed;
+    return speed; // Return the final speed value
   }
 
 
+  // The target angle is relative to the starting angle of the robot in degrees
   float odomTurnPID(double target, double maxSpeed)
   {
     float Kp = 0.4;
     float Ki = 0.01;
     float Kd = 0.45;
     float integralPowerLimit =
-        40 / Ki;                   // little less than half power in pct (percent)
-    float integralActiveZone = 15; // degrees b/c its a gyro turn doesnt use ticks
+        40 / Ki;                   // little less than half power
+    float integralActiveZone = 15; // degrees to start accumulating to integral
     float errorThreshold = 0.5; // Exit loop when error is less than this
 
     float speed = 0;
 
 
-    turn_error = target - getDegrees();
+    turn_error = target - getDegrees(); // The error is the relative angle to the target angle
 
     if (fabs(turn_error) > errorThreshold)
     {
@@ -509,14 +488,16 @@ using namespace vex;
   }
 
   
+  // Once the majority of the turning is accounted for,
+  // maintain the current angle with smoother and less drastically tuned PID
   float odomDriveStraightPID(double target, double maxSpeed)
   {
     float Kp = 0.3;
     float Ki = 0.0;
     float Kd = 0.3;
     float integralPowerLimit =
-        40 / Ki;                   // little less than half power in pct (percent)
-    float integralActiveZone = 15; // degrees b/c its a gyro turn doesnt use ticks
+        40 / Ki;                   // little less than half power in pct
+    float integralActiveZone = 15; // degrees
     float errorThreshold = 0.3; // Exit loop when error is less than this
 
     float speed = 0;
@@ -552,6 +533,7 @@ using namespace vex;
 
 
 
+  // Turn to face a global point on the field from the robot's current location
   void turnTo(double x, double y, double turnSpeed)
   {
     double finalTurnSpeed = 1;
@@ -560,12 +542,13 @@ using namespace vex;
     { 
       targetX = x;
       targetY = y;
-      targetAngle = getAngleToPosition(targetX, targetY);
-      finalTurnSpeed = odomTurnPID(targetAngle, turnSpeed);
+      targetDeg = getDegToPosition(targetX, targetY); // Obtain the closest angle to the target position
+      finalTurnSpeed = odomTurnPID(targetDeg, turnSpeed);
       
+       // Turn in place towards the position
       leftDrive(-finalTurnSpeed);
       rightDrive(finalTurnSpeed);
-      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetAngle);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
 
       task::sleep(5);
     }
@@ -576,6 +559,8 @@ using namespace vex;
 
   
 
+  // Turn to and move to the global target point simultaneously. Limit the maximum speeds of the forward and turning.
+  // Modifying the ratio of turn and forward speed can change the final angle of the bot when it reaches the target
   void moveTo(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
@@ -584,6 +569,7 @@ using namespace vex;
     double curFwdSpeed = 1;
     double curTurnSpeed = 1;
 
+    // Update the global target variables
     targetX = x;
     targetY = y;
     targetDistance = distanceTo(targetX, targetY, globalX, globalY);
@@ -591,7 +577,8 @@ using namespace vex;
     bool followPosition = true;
     double lastDistToGo = 0; // Keeps track of the last couple inches to finish off the movement
 
-    // Run while forward pid is active (speed > 0) SUGGESTION: make error threshold here instead of in PID function
+    // Run while forward pid is active
+    // When PID is within its acceptable error threshold the speed it returns is 0
     while (curFwdSpeed != 0)
     {
       // When close to target, don't follow the position, just go forward
@@ -605,18 +592,18 @@ using namespace vex;
       {
 
         targetDistance = distanceTo(targetX, targetY, globalX, globalY);
-        targetAngle = getAngleToPosition(targetX, targetY);
+        targetDeg = getDegToPosition(targetX, targetY);
         
         curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
 
         // When needing to turn a lot, use turn pid
-        if (fabs( targetAngle - getDegrees() ) > 3)
+        if (fabs( targetDeg - getDegrees() ) > 3)
         {
-          curTurnSpeed = odomTurnPID(targetAngle, maxTurnSpeed);
+          curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
         }
         else  // when maintaining current angle, use driveStraight PID
         {
-          curTurnSpeed = odomDriveStraightPID(targetAngle, maxTurnSpeed); // limit max speed here
+          curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
         }
 
         lastDistToGo = getTotalDistance(); // keep track of the last distance to go until robot stops following position
@@ -627,13 +614,12 @@ using namespace vex;
         double desiredDistance = lastDistToGo + targetDistance; // add the last inch or so to the desired distance
         curFwdSpeed = odomFwdPID(desiredDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
         curTurnSpeed = 0;
-
       }
 
 
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
-      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetAngle);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
       task::sleep(5);
     }
 
@@ -642,7 +628,7 @@ using namespace vex;
 
 
 
-
+  // Turn and move backwards simultaneously to the target global position.
   void moveToRev(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
@@ -673,19 +659,19 @@ using namespace vex;
       // set the target global variables to reflect the given parameters
         targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // distance is negative
 
-        targetAngle = getAngleToPosition(targetX, targetY);
-        targetAngle = angleWrap(targetAngle - 180, getDegrees()); // angle is 180 degrees so it faces backwards
+        targetDeg = getDegToPosition(targetX, targetY);
+        targetDeg = angleWrap(targetDeg - 180, getDegrees()); // angle is 180 degrees so it faces backwards
 
         curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
 
         // When needing to turn a lot, use turn pid
-        if (fabs( targetAngle - getDegrees() ) > 3)
+        if (fabs( targetDeg - getDegrees() ) > 3)
         {
-          curTurnSpeed = odomTurnPID(targetAngle, maxTurnSpeed);
+          curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
         }
         else  // when maintaining current angle, use driveStraight PID
         {
-          curTurnSpeed = odomDriveStraightPID(targetAngle, maxTurnSpeed); // limit max speed here
+          curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
         }
 
         lastDistToGo = getTotalDistance(); // use as the initial position of final forward
@@ -698,7 +684,7 @@ using namespace vex;
 
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
-      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetAngle);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
       task::sleep(5);
     }
 
@@ -730,34 +716,35 @@ using namespace vex;
     while (!passedX || !passedY)
     {
       // Check if the point has been passed yet
+      // The relative direction to the point has to be the opposite sign as it was initially
       passedX = (initialX > x && globalX < x) || (initialX < x && globalX > x);
       passedY = (initialY > y && globalY < y) || (initialY < y && globalY > y);
 
-      targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+      targetDistance = distanceTo(targetX, targetY, globalX, globalY); // Get the distance to the target
 
-      // only turn when far away
+      // only turn when far enough away from the target (farther than a couple of inches)
       if (fabs(targetDistance) > 2)
       {
-        targetAngle = getAngleToPosition(targetX, targetY);
+        targetDeg = getDegToPosition(targetX, targetY);
         
         // When needing to turn a lot, use turn pid
-        if (fabs( targetAngle - getDegrees() ) > 3)
+        if (fabs( targetDeg - getDegrees() ) > 3)
         {
-          curTurnSpeed = odomTurnPID(targetAngle, maxTurnSpeed);
+          curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
         }
         else  // when maintaining current angle, use driveStraight PID
         {
-          curTurnSpeed = odomDriveStraightPID(targetAngle, maxTurnSpeed); // limit max speed here
+          curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
         }
       }
-      else // stop turning when close
+      else // stop turning when close to the target so the bot doesn't spin around trying to correct its position
       {
         curTurnSpeed = 0;
       }
 
       leftDrive(maxFwdSpeed - curTurnSpeed);
       rightDrive(maxFwdSpeed + curTurnSpeed);
-      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetAngle);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
       task::sleep(5);
     }
 
@@ -770,13 +757,13 @@ using namespace vex;
 
 
   // screen is 480 x 272
+  // Draw a point on the display to represent a global position
   void drawPoint(double x, double y)
   {
     double tile_size = 30;
     double draw_pos_x = ((x / 24) * tile_size) + 105;
     double draw_pos_y = ((-y / 24) * tile_size) + 105;
     
-    Brain.Screen.setFillColor(purple);
     Brain.Screen.setPenWidth(0);
     Brain.Screen.drawCircle(draw_pos_x, draw_pos_y, 4);
 
@@ -785,14 +772,14 @@ using namespace vex;
   }
 
 
-  // Convert where the screen is tapped to field coordinates
+  // Convert where the screen is tapped to global coordinates
   double screenToGlobalX(double screenX)
   {
     double tile_size = 30;
     return ((screenX - 105) / tile_size) * 24;;
   }
 
-  // Convert where the screen is tapped to field coordinates
+  // Convert where the screen is tapped to global coordinates
   double screenToGlobalY(double screenY)
   {
     double tile_size = 30;
@@ -801,7 +788,7 @@ using namespace vex;
   }
 
 
-  // Draw the dashboard to visually display the robot's location and position
+  // Draw the dashboard to visually display the robot's position and rotation
   void draw()
   {
     // Draw grid of the field
@@ -810,7 +797,6 @@ using namespace vex;
     Brain.Screen.setPenWidth(2);
 
     int tile_size = 30;
-
     for (int x = 0; x < 6; x++)
     {
       for (int y = 0; y < 6; y++)
@@ -834,12 +820,13 @@ using namespace vex;
     Brain.Screen.setPenColor(red);
     Brain.Screen.setPenWidth(5);
 
-    // Line indicates the rotation found by the gyro
-    Brain.Screen.drawLine(draw_pos_x,
+    // Line indicates the rotation found by the inertial sensor
+    Brain.Screen.drawLine(draw_pos_x, // staring point of line is the bot's position
                           draw_pos_y,
-                          draw_pos_x + cos(getDegrees() * toRadians) * 20,
-                          draw_pos_y - sin(getDegrees() * toRadians) * 20); // make y negative because down is positive on the screen
-    drawPoint(targetX, targetY);
+                          draw_pos_x + cos(getRadians()) * 20, // End point of line calculated with polar coordinates
+                          draw_pos_y - sin(getRadians()) * 20); // make y negative because down is positive on the screen
+    Brain.Screen.setFillColor(purple);
+    drawPoint(targetX, targetY); // Draw the target point on the screen
   }
 
 
@@ -847,27 +834,29 @@ using namespace vex;
 void debug()
 {
 
-  Brain.Screen.setFillColor(color(10, 80, 30)); // green in rgb
-  Brain.Screen.setPenColor(white);
+  Brain.Screen.setFillColor(color(10, 80, 30)); // Set background to green in rgb
+  Brain.Screen.setPenColor(white); // Set text color to white
+
+  // Display debug values such as position, rotation, encoder values, total distancel, etc.
   Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
   Brain.Screen.printAt(210, 70, "Enc: L: %.1f R: %.1f S: %.1f    ", getLeftReading(), getRightReading(), getSideReading());
   Brain.Screen.printAt(210, 90, "Dist: %.1f", getTotalDistance());
-  //Brain.Screen.printAt(210, 90, "Mot: L: %.1f R: %.1f    ", getLeftMotors(), getRightMotors());
 }
 
+// Run these functions in parallel to the main autonomous/driver thread
 int backgroundTasks()
 {
   while (true)
   {
-    updatePosition();
+    updatePosition(); // Update the odometry position
+    // Draw the debug values and the field dashboard
     debug();
     draw();
-    task::sleep(10);
+    task::sleep(10); // Wait some time between odometry cycles. Test making it shorter for better position estimates
   }
   return 0;
 }
-
 
 
 
@@ -881,6 +870,7 @@ int main()
   Brain.Screen.drawRectangle(0, 0, 480, 272); // fill entire screen
 
 
+  // Wait until the inertial sensor finishes callibrating to display the rest of the screen
   while (INERTIAL.isCalibrating())
   {
     Brain.Screen.setPenColor(red);
@@ -888,9 +878,22 @@ int main()
   }
   Brain.Screen.setPenColor(white);
 
-  task a(backgroundTasks);
+  task a(backgroundTasks); // Initiate the background tasks
+
+
+
+  //field testing
+
+  /*moveToWaypoint(48, 24, 50, 10);
+  moveTo(0, 48, 50, 20);
+  moveToRev(0, 0, 50, 20);*/
+
+  /*moveToWaypoint(30, -20, 40, 25);
+  moveTo(0, -40, 40, 25);
+  moveTo(0, 0, 40, 25);*/
+
   
-  
+  // home testing
   moveToWaypoint(10, 10, 30, 40);
   moveTo(20, 20, 30, 40);
   // final angles: 40.3, 39.3, 39.3, 37.4, 39.1 ,38.8, 36.7
@@ -914,9 +917,12 @@ int main()
   /*moveTo(-20, 0, 25, 20);
   moveTo(-20, 20, 25, 20);*/
 
+
+
   while (1)
   {
 
+    // If a point on the screen is pressed, move to the global position of that point for debug purposes
     if (Brain.Screen.pressing())
     {
       targetX = screenToGlobalX(Brain.Screen.xPosition());
@@ -925,7 +931,7 @@ int main()
       moveTo(targetX, targetY, 20, 25);
     }
     
-
+    // control the robot more precisely than with joysticks
     if (controllerPrim.ButtonUp.pressing())
     {
       drive(15);
@@ -946,7 +952,10 @@ int main()
     }
     else
     {
-      stopBase();
+      // Control with joysticks if buttons are not used. Joystick value defaults to 0 when not touched so the speed will be 0.
+      leftDrive(controllerPrim.Axis3.value());
+      rightDrive(controllerPrim.Axis2.value());
+      //stopBase();
     }
 
     task::sleep(5);
