@@ -1,5 +1,6 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
+/*    Program:      OdomDashboard                                             */
 /*    Module:       main.cpp                                                  */
 /*    Author:       C:\Users\joshu                                            */
 /*    Created:      Sun Jun 05 2022                                           */
@@ -21,7 +22,7 @@ using namespace vex;
   const double TRACKING_CIRCUMFERENCE = 2.75 * PI; // Circumferebce of the tracking wheels (diameter * PI)
 
 
-  // PID VARS
+  // PID VARIABLES //
   float fwd_error = 0; // Distance from the target forward distance
   float fwd_lastError = 0;
   float fwd_integral = 0; // integral accumulates the error, speeding up if target is not reached fast enough
@@ -33,34 +34,43 @@ using namespace vex;
   float turn_derivative = 0;
 
 
-  // ODOM VARS
+  // ODOMETRY VARIABLES //
 
   // *** Current global position on the field ***
   // These values always start at (0, 0) so everything is relative to the starting location
   double globalX = 0;
   double globalY = 0;
 
+  double absoluteAngleOfMovement = 0;
+
   // tracking wheel perpendicular distances from center.
   // Seen at page 4 of http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf
-  const double leftOffset = 4.875; // left
+  const double leftOffset =  4.875; // left
   const double rightOffset = 4.875; // right
   const double sideOffset = 0.25;//-0.75; // sideways
 
+  // Current value of tracking wheel encoder positions
   float curLeft = 0;
   float curRight = 0;
   float curSide = 0;
-  float curTheta = 0;
 
+  // Values of tracking wheel encoder positions and inertial radians since last update
   float lastLeftPos = 0;
   float lastRightPos = 0;
   float lastSidePos = 0;
   double lastInertialRadians = 0;
 
-  // Change in positions since last position update
+  // Change in tracking wheel encoder positions since last update
   float deltaLeft = 0;
   float deltaRight = 0;
   float deltaSide = 0;
+
+  // Change in arc theta (twice the change in inertial radians) since last update
   float deltaTheta = 0;
+
+  // Change in global position since last update
+  double deltaX = 0;
+  double deltaY = 0;
 
   // Distance moved relative to the bot's direction
   float deltaDistance;
@@ -93,7 +103,7 @@ using namespace vex;
   motor RBBASE(PORT18, true);
 
 
-  // sensors & more //
+  // Sensors & more //
 
   inertial INERTIAL(PORT14);
 
@@ -265,7 +275,8 @@ using namespace vex;
     double relativeX = x - globalX;
     double relativeY = y - globalY;
 
-    // atan2 gives the angle between two points
+    // atan2(y, x) gives the absolute angle between two points
+    // This is the angle to turn to to get from the current point to the target point
     double degToPosition = toDegrees * atan2(relativeY, relativeX);
 
     // Prevent the robot from targeting a rotation over 180 degrees from its current rotation.
@@ -339,8 +350,8 @@ using namespace vex;
     // Angle of arc of movement (different than inertial angle)
     // The center of the arc is an arbitrary distance away
     // The arc can be seen at the pilons document http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf (page 5)
-    curTheta = (curLeft - curRight) / (leftOffset + rightOffset); // in radians
-    deltaTheta = (deltaLeft - deltaRight)/ (leftOffset + rightOffset);
+    //curTheta = (curRight - curLeft) / (leftOffset + rightOffset); // in radians
+    deltaTheta = (deltaRight - deltaLeft) / (leftOffset + rightOffset);
 
     // If not turning deltaX is the distance moved forward
     if (deltaTheta == 0)
@@ -351,30 +362,33 @@ using namespace vex;
     else // adjust for the offset of right encoder from center using the arc
     {
       // Get the radius from the center of the arc to the center of the bot
-      double centerRadius = deltaRight/deltaTheta + rightOffset; // Add right encoder offset from center of bot to the right encoder's radius
+      double centerRadius = deltaRight/deltaTheta - rightOffset; // Add right encoder offset from center of bot to the right encoder's radius
 
       // Get the chord length (straight line distance between ends of the arc) using 2r * sin(theta/2)
-      deltaDistance = 2 * centerRadius * sin(deltaTheta/2);
+      deltaDistance = 2 * centerRadius * (sin(deltaTheta/2));
 
-      /* Sideways motion is not necessary for tank drive bots because they can't shift sideways
+       //Sideways motion is not necessary for tank drive bots because they can't shift sideways
       // Do the same to account for sideways motion
-      double centerRadiusSideways = deltaSide/deltaTheta + sideOffset;
+      /*double centerRadiusSideways = deltaSide/deltaTheta + sideOffset;
       deltaDistanceSideways = 2 * centerRadiusSideways * sin(deltaTheta/2);*/
     }
     
     // Estimate the average angle between the last and current position
-    double curInertialRadians = getRadians();
-    double averageRadians = ( curInertialRadians + lastInertialRadians ) / 2;
+    // Half of the arc angle works out to be the relative angle turned
+    absoluteAngleOfMovement = lastInertialRadians + deltaTheta/2;//getRadians();//(lastInertialRadians + getRadians())/2;// + deltaTheta/2;//averageRadians = ( curInertialRadians + lastInertialRadians ) / 2;
 
-
-    // Accumulate the tiny change in position to the global position
+    // Calculate the change in global position
     // Using trig, we can obtain the x and y components from the distance moved and the direction it moved in
     // It is converting polar coordinates (radius, angle) to (x, y) coordinates
-    globalX += deltaDistance * cos(averageRadians); // x uses cosine
-    globalY += deltaDistance * sin(averageRadians); // y uses sine
+    deltaX = deltaDistance * cos(absoluteAngleOfMovement); // x uses cosine
+    deltaY = deltaDistance * sin(absoluteAngleOfMovement); // y uses sine
+
+    // Accumulate the changes in position to the globals position variables
+    globalX += deltaX;
+    globalY += deltaY;
     
-    //globalX += deltaDistanceSideways * sin(averageRadians);
-    //globalY += deltaDistanceSideways * cos(averageRadians);
+    //globalX += deltaDistanceSideways * sin(absoluteAngleOfMovement);
+    //globalY += deltaDistanceSideways * cos(absoluteAngleOfMovement);
 
     totalDistance += deltaDistance; // Keep track of accumulated distance for scheduling parallel tasks
 
@@ -382,7 +396,7 @@ using namespace vex;
     lastLeftPos = curLeft;
     lastRightPos = curRight;
     lastSidePos = curSide;
-    lastInertialRadians = curInertialRadians;
+    lastInertialRadians = getRadians();
   }
 
   
@@ -694,7 +708,7 @@ using namespace vex;
 
   // Waypoints are a point the robot follows but doesn't stop at
   // Waypoints allow more control over the path of the robot
-  void moveToWaypoint(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
+  void waypoint(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
 
@@ -751,6 +765,67 @@ using namespace vex;
     Brain.Screen.printAt(210, 120, "moveToWaypoint() done.                    ");
   }
 
+
+
+  // Waypoints are a point the robot follows but doesn't stop at
+  // Waypoints allow more control over the path of the robot
+  void waypointRev(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
+  {
+    resetTotalDistance();
+
+    // Current components of final speed to be summed up
+    double curTurnSpeed = 1;
+
+    double initialX = globalX;
+    double initialY = globalY;
+
+
+    targetX = x;
+    targetY = y;
+    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+    
+    bool passedX = false;
+    bool passedY = false;
+    
+    // run while the robot has not passed the point's x and y position yet
+    while (!passedX || !passedY)
+    {
+      // Check if the point has been passed yet
+      // The relative direction to the point has to be the opposite sign as it was initially
+      passedX = (initialX > x && globalX < x) || (initialX < x && globalX > x);
+      passedY = (initialY > y && globalY < y) || (initialY < y && globalY > y);
+
+      targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // Get the distance to the target
+
+      // only turn when far enough away from the target (farther than a couple of inches)
+      if (fabs(targetDistance) > 2)
+      {
+        targetDeg = getDegToPosition(targetX, targetY);
+        targetDeg = angleWrap(targetDeg - 180, getDegrees()); // angle is 180 degrees so it faces backwards
+        
+        // When needing to turn a lot, use turn pid
+        if (fabs( targetDeg - getDegrees() ) > 3)
+        {
+          curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
+        }
+        else  // when maintaining current angle, use driveStraight PID
+        {
+          curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
+        }
+      }
+      else // stop turning when close to the target so the bot doesn't spin around trying to correct its position
+      {
+        curTurnSpeed = 0;
+      }
+
+      leftDrive(-maxFwdSpeed - curTurnSpeed);
+      rightDrive(-maxFwdSpeed + curTurnSpeed);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
+      task::sleep(5);
+    }
+
+    Brain.Screen.printAt(210, 120, "moveToWaypoint() done.                    ");
+  }
 
 
 // DISPLAY ///////////////////////////
@@ -825,6 +900,7 @@ using namespace vex;
                           draw_pos_y,
                           draw_pos_x + cos(getRadians()) * 20, // End point of line calculated with polar coordinates
                           draw_pos_y - sin(getRadians()) * 20); // make y negative because down is positive on the screen
+                          
     Brain.Screen.setFillColor(purple);
     drawPoint(targetX, targetY); // Draw the target point on the screen
   }
@@ -840,8 +916,14 @@ void debug()
   // Display debug values such as position, rotation, encoder values, total distancel, etc.
   Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
-  Brain.Screen.printAt(210, 70, "Enc: L: %.1f R: %.1f S: %.1f    ", getLeftReading(), getRightReading(), getSideReading());
-  Brain.Screen.printAt(210, 90, "Dist: %.1f", getTotalDistance());
+  Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f S:%.1f    ", getLeftReading(), getRightReading(), getSideReading());
+  Brain.Screen.printAt(210, 90, "Dis: %.1f", getTotalDistance());
+  
+  /*
+  Brain.Screen.printAt(210, 110, "lir: %.1f  aaom: %.1f", lastInertialRadians * toDegrees, absoluteAngleOfMovement * toDegrees);
+  Brain.Screen.printAt(210, 130, "dth: %.1f  dd:%.1f", deltaTheta * toDegrees, deltaDistance);
+  Brain.Screen.printAt(210, 150, "dl:%.1f  dr:%.1f", deltaLeft, deltaRight);
+  Brain.Screen.printAt(210, 170, "dx:%.1f  dy:%.1f", deltaX, deltaY);*/
 }
 
 // Run these functions in parallel to the main autonomous/driver thread
@@ -894,12 +976,29 @@ int main()
 
   
   // home testing
-  moveToWaypoint(10, 10, 30, 40);
-  moveTo(20, 20, 30, 40);
+  /*moveToWaypoint(10, 10, 30, 40);
+  moveTo(20, 20, 30, 40);*/
+
   // final angles: 40.3, 39.3, 39.3, 37.4, 39.1 ,38.8, 36.7
   // may need to turn to a specific angle or point afterwards to aim
   /*task::sleep(500);
   turnTo(30, 30, 22);*/
+
+
+  // home testing circuit
+
+  for (int i = 0; i < 2; i++)
+  {
+    // Todo: tune PID speed higher so maximum values can alter the speed
+    // Maybe have a multiplier for speed instead of pct
+    moveTo(25, 0, 50, 15);
+    moveTo(35, 40, 45, 20);
+    waypointRev(20, 20, 40, 10);
+    moveToRev(0, 0, 50, 10);
+  }
+
+
+
 
 
   /*moveTo(30, 10, 20, 20);
@@ -928,7 +1027,11 @@ int main()
       targetX = screenToGlobalX(Brain.Screen.xPosition());
       targetY = screenToGlobalY(Brain.Screen.yPosition());
       //turnTo(targetX, targetY, 20);
-      moveTo(targetX, targetY, 20, 25);
+      //moveTo(targetX, targetY, 20, 25);
+      moveTo(0, 0, 20, 25);
+
+      /*updatePosition();
+      task::sleep(500);*/
     }
     
     // control the robot more precisely than with joysticks
