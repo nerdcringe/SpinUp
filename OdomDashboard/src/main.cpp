@@ -88,19 +88,20 @@ using namespace vex;
   double targetDeg = 0;
 
 
+ bool exitLoop = false;
 
 // DEVICES ///////////////////////////////////
 
 
   // motors //
 
-  motor LFBASE(PORT1, false);
+  motor LBBASE(PORT17, false);
   //motor LMBASE(PORT2); // Left mid
-  motor LBBASE(PORT19, false);
+  motor LFBASE(PORT19, false);
 
-  motor RFBASE(PORT13, true);
+  motor RBBASE(PORT13, true);
   //motor RMBASE(PORT14,true); // Right mid
-  motor RBBASE(PORT18, true);
+  motor RFBASE(PORT18, true);
 
 
   // Sensors & more //
@@ -187,7 +188,7 @@ using namespace vex;
 // SENSOR FUNCTIONS ///////////////////////////////////////////////////////
 
   // Don't really need motor encoder functions as tracking wheels can do it more accurately
-/*
+  /*
   double getMotorPos()
   {
     double sum = LFBASE.rotation(deg)
@@ -229,11 +230,6 @@ using namespace vex;
     totalDistance = 0;
   }
 
- // Check if position is not changing so robot doesn't get stuck trying to drive past a wall (todo)
-  bool isStopped()
-  {
-    return deltaDistance = 0;
-  }
 
 
   // Obtain the current values of the tracking wheel encoders
@@ -249,6 +245,13 @@ using namespace vex;
   return ticksToInches(encoderS.rotation(deg));
   }
 
+
+  double stopTime = 0;
+ // Check if position is not changing so robot doesn't get stuck trying to drive past a wall (todo)
+  bool isStopped()
+  {
+    return stopTime > 2000;
+  }
 
   // Obtain the current inertial sensor rotation relative to the starting rotation
   double getDegrees()
@@ -275,7 +278,7 @@ using namespace vex;
     double relativeX = x - globalX;
     double relativeY = y - globalY;
 
-    // atan2(y, x) gives the absolute angle between two points
+    // atan2(y, x) gives the absolute angle from the origin to the specified point
     // This is the angle to turn to to get from the current point to the target point
     double degToPosition = toDegrees * atan2(relativeY, relativeX);
 
@@ -407,12 +410,12 @@ using namespace vex;
   float odomFwdPID(double target, double maxSpeed)
   {
     // PID constants to tune how much each variable affects the final speed
-    float Kp = 1; // Proportional makes the speed proportional to the error
+    float Kp = 3.5; // Proportional makes the speed proportional to the error
 
     float Ki = 0.005; // Integral accumulates error to the speed over time
     // Integral is often used to to overcome friction at the end due to derivative
 
-    float Kd = 0.175; // Derivative slows down the speed if it is too fast
+    float Kd = 0.3; // Derivative slows down the speed if it is too fast
 
 
     // Don't let the integral term have too much control
@@ -461,9 +464,9 @@ using namespace vex;
   // The target angle is relative to the starting angle of the robot in degrees
   float odomTurnPID(double target, double maxSpeed)
   {
-    float Kp = 0.4;
+    float Kp = 1;
     float Ki = 0.01;
-    float Kd = 0.45;
+    float Kd = 1;
     float integralPowerLimit =
         40 / Ki;                   // little less than half power
     float integralActiveZone = 15; // degrees to start accumulating to integral
@@ -575,7 +578,7 @@ using namespace vex;
 
   // Turn to and move to the global target point simultaneously. Limit the maximum speeds of the forward and turning.
   // Modifying the ratio of turn and forward speed can change the final angle of the bot when it reaches the target
-  void moveTo(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
+  void moveToOld(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
 
@@ -593,11 +596,11 @@ using namespace vex;
 
     // Run while forward pid is active
     // When PID is within its acceptable error threshold the speed it returns is 0
-    while (curFwdSpeed != 0)
+    while (curFwdSpeed != 0)// && !isStopped())
     {
       // When close to target, don't follow the position, just go forward
       // so the robot doesn't run in circles trying to pinpoint the exact position
-      if (fabs(targetDistance) < 2)
+      if (fabs(targetDistance) < 3)
       {
         followPosition = false;
       }
@@ -633,6 +636,66 @@ using namespace vex;
 
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
+      task::sleep(5);
+    }
+
+    Brain.Screen.printAt(210, 120, "moveTo() done.                    ");
+  }
+
+
+
+
+  void moveTo(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
+  {
+    resetTotalDistance();
+
+    // Current components of final speed to be summed up
+    double curFwdSpeed = 1;
+    double curTurnSpeed = 1;
+
+    // Update the global target variables
+    targetX = x;
+    targetY = y;
+    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+    
+    // Run while forward pid is active
+    // When PID is within its acceptable error threshold it returns 0 speed
+    // Only turn when farther than a few inches
+    while (curFwdSpeed != 0 && fabs(targetDistance) > 3 && !isStopped())
+    {
+      targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+      targetDeg = getDegToPosition(targetX, targetY);
+      
+      curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
+
+      // When needing to turn a lot, use turn pid
+      if (fabs( targetDeg - getDegrees() ) > 3)
+      {
+        curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
+      }
+      else  // when maintaining current angle, use driveStraight PID
+      {
+        curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
+      }
+      
+      leftDrive(curFwdSpeed - curTurnSpeed);
+      rightDrive(curFwdSpeed + curTurnSpeed);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
+      task::sleep(5);
+    }
+
+    // When within a few inches of the point, just move foward without turning
+    // so the bot doesn't run in circles around the point if it overshoots by a hair
+    double pureFwdDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
+
+    while (curFwdSpeed != 0 && !isStopped())
+    {
+      curFwdSpeed = odomFwdPID(pureFwdDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
+      curTurnSpeed = 0;
+      
+      leftDrive(curFwdSpeed);
+      rightDrive(curFwdSpeed);
       Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
       task::sleep(5);
     }
@@ -731,8 +794,8 @@ using namespace vex;
     {
       // Check if the point has been passed yet
       // The relative direction to the point has to be the opposite sign as it was initially
-      passedX = (initialX > x && globalX < x) || (initialX < x && globalX > x);
-      passedY = (initialY > y && globalY < y) || (initialY < y && globalY > y);
+      passedX = (initialX >= x && globalX <= x) || (initialX <= x && globalX >= x);
+      passedY = (initialY >= y && globalY <= y) || (initialY <= y && globalY >= y);
 
       targetDistance = distanceTo(targetX, targetY, globalX, globalY); // Get the distance to the target
 
@@ -792,8 +855,8 @@ using namespace vex;
     {
       // Check if the point has been passed yet
       // The relative direction to the point has to be the opposite sign as it was initially
-      passedX = (initialX > x && globalX < x) || (initialX < x && globalX > x);
-      passedY = (initialY > y && globalY < y) || (initialY < y && globalY > y);
+      passedX = (initialX >= x && globalX <= x) || (initialX <= x && globalX >= x);
+      passedY = (initialY >= y && globalY <= y) || (initialY <= y && globalY >= y);
 
       targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // Get the distance to the target
 
@@ -825,6 +888,43 @@ using namespace vex;
     }
 
     Brain.Screen.printAt(210, 120, "moveToWaypoint() done.                    ");
+  }
+
+
+
+
+  void setTarget(double x, double y)
+  {
+    targetX = x;
+    targetY = y;
+  }
+
+  void turnToTarget(double maxTurnSpeed)
+  {
+    turnTo(targetX, targetY, maxTurnSpeed);
+  }
+
+  void moveToTarget(double maxFwdSpeed, double maxTurnSpeed)
+  {
+    moveTo(targetX, targetY, maxFwdSpeed, maxTurnSpeed);
+  }
+
+  void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed)
+  {
+    moveToRev(targetX, targetY, maxFwdSpeed, maxTurnSpeed);
+  }
+
+  void passTarget(double maxFwdSpeed, double maxTurnSpeed)
+  {
+    waypoint(targetX, targetY, maxFwdSpeed, maxTurnSpeed);
+
+  }
+
+  
+  void passTargetRev(double maxFwdSpeed, double maxTurnSpeed)
+  {
+    waypoint(targetX, targetY, maxFwdSpeed, maxTurnSpeed);
+
   }
 
 
@@ -879,10 +979,10 @@ using namespace vex;
         Brain.Screen.drawRectangle(x * tile_size + 15, y * tile_size + 15, tile_size, tile_size); // fill entire screen
       }
     }
-    /*Brain.Screen.printAt(170, 100, "+x");
+    Brain.Screen.printAt(170, 100, "+x");
     Brain.Screen.printAt(20, 100, "-x");
     Brain.Screen.printAt(110, 30, "+y");
-    Brain.Screen.printAt(110, 190, "-y");*/
+    Brain.Screen.printAt(110, 190, "-y");
     
     // Draw robot
     Brain.Screen.setFillColor(white);
@@ -917,7 +1017,10 @@ void debug()
   Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
   Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f S:%.1f    ", getLeftReading(), getRightReading(), getSideReading());
-  Brain.Screen.printAt(210, 90, "Dis: %.1f", getTotalDistance());
+  //Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
+  Brain.Screen.printAt(210, 90, "Stoptime: %d   ", stopTime);
+  
+  Brain.Screen.printAt(210, 110, "isStopped: %d   ", fabs(deltaLeft) < 0.001);
   
   /*
   Brain.Screen.printAt(210, 110, "lir: %.1f  aaom: %.1f", lastInertialRadians * toDegrees, absoluteAngleOfMovement * toDegrees);
@@ -933,6 +1036,16 @@ int backgroundTasks()
   {
     updatePosition(); // Update the odometry position
     // Draw the debug values and the field dashboard
+
+    if (fabs(deltaRight) < 0.001)
+    {
+      stopTime += 1;
+    }
+    else
+    {
+      stopTime = 0;
+    }
+
     debug();
     draw();
     task::sleep(10); // Wait some time between odometry cycles. Test making it shorter for better position estimates
@@ -962,6 +1075,26 @@ int main()
 
   task a(backgroundTasks); // Initiate the background tasks
 
+  setTarget(30,0);
+  moveToTarget(15,10);
+
+  /*setTarget(30, -21);
+  passTarget(45,8.5);
+  setTarget(92.5, -42);
+  moveToTarget(60,8.5);//10
+  setTarget(0,1);
+  moveToTargetRev(40,8);*/
+  
+  /* // 8-25
+  setTarget(65,0);
+  passTarget(40,10);
+  setTarget(85,-85);
+  passTarget(40,10);
+  setTarget(0,-85);
+  moveToTarget(40,10);
+  setTarget(0,0);
+  passTarget(40,30);*/
+
 
 
   //field testing
@@ -987,7 +1120,7 @@ int main()
 
   // home testing circuit
 
-  for (int i = 0; i < 2; i++)
+  /*for (int i = 0; i < 2; i++)
   {
     // Todo: tune PID speed higher so maximum values can alter the speed
     // Maybe have a multiplier for speed instead of pct
@@ -995,10 +1128,73 @@ int main()
     moveTo(35, 40, 45, 20);
     waypointRev(20, 20, 40, 10);
     moveToRev(0, 0, 50, 10);
-  }
+  }*/
+
+// todo: make setTarget function and have turnToTarget and moveToTarget for readability
+  /*moveTo(60, 0, 100, 50);
+  turnTo(60, -60, 40);
+  moveTo(60, -60, 100, 50);
+  turnTo(0, -60, 40);
+  moveTo(0, -60, 100, 50);
+  turnTo(0, 0, 40);
+  moveTo(0, 0, 100, 50);
+  turnTo(60, 0, 40);*/
+
+/*
+  setTarget(60, 0);
+  turnToTarget(40);
+  moveToTarget(100, 50);
+
+  setTarget(60, -60);
+  turnToTarget(40);
+  setTarget(30, -30);
+  passTarget(50, 50);
+  setTarget(60, -60);
+  moveToTarget(50, 40);
+
+  setTarget(0, -60);
+  turnToTarget(40);
+  moveToTarget(100, 50);
+
+  setTarget(0, 0);
+  turnToTarget(40);
+  moveToTarget(100, 50);
+
+  setTarget(60, 0);
+  turnToTarget(40);*/
 
 
+  // circle 
+  /*
+  setTarget(30, -30);
+  passTarget(60, 10);
 
+  setTarget(0, -60);
+  passTarget(60, 10);
+
+  setTarget(-30, -30);
+  passTarget(60, 10);
+  
+  setTarget(0, 0);
+  moveToTarget(60, 10);*/
+
+/*
+  // field circuit
+ for (int i = 0; i < 8; i++)
+ {
+   
+  setTarget(20, -20);
+  passTarget(60, 10);
+
+  setTarget(0, -40);
+  passTarget(60, 10);
+
+  setTarget(-20, -20);
+  passTarget(60, 10);
+  
+  setTarget(0, 0);
+  passTarget(60, 10);
+ }*/
 
 
   /*moveTo(30, 10, 20, 20);
@@ -1027,8 +1223,8 @@ int main()
       targetX = screenToGlobalX(Brain.Screen.xPosition());
       targetY = screenToGlobalY(Brain.Screen.yPosition());
       //turnTo(targetX, targetY, 20);
-      //moveTo(targetX, targetY, 20, 25);
-      moveTo(0, 0, 20, 25);
+      moveTo(targetX, targetY, 20, 25);
+      //moveTo(0, 0, 20, 25);
 
       /*updatePosition();
       task::sleep(500);*/
