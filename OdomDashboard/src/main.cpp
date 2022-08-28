@@ -578,7 +578,7 @@ using namespace vex;
 
   // Turn to and move to the global target point simultaneously. Limit the maximum speeds of the forward and turning.
   // Modifying the ratio of turn and forward speed can change the final angle of the bot when it reaches the target
-  void moveToOld(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
+  void moveTo(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
 
@@ -646,7 +646,8 @@ using namespace vex;
 
 
 
-  void moveTo(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
+  // attempt to make moveTo code more straightforward
+  void moveToNew(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
 
