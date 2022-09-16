@@ -246,12 +246,26 @@ using namespace vex;
   }
 
 
-  double stopTime = 0;
+  int stopTime = 0;
  // Check if position is not changing so robot doesn't get stuck trying to drive past a wall (todo)
   bool isStopped()
   {
-    return stopTime > 2000;
+    if (fabs(deltaRight) < 0.001)
+    {
+      stopTime += 1;
+    }
+    else
+    {
+      stopTime = 0;
+    }
+    if (stopTime > 50)
+    {
+      stopTime = 0;
+      return true;
+    }
+    return false;
   }
+
 
   // Obtain the current inertial sensor rotation relative to the starting rotation
   double getDegrees()
@@ -409,6 +423,7 @@ using namespace vex;
   // odometry movement uses these calculated PID speeds to move forward and turn simultaneously
   float odomFwdPID(double target, double maxSpeed)
   {
+    /*
     // PID constants to tune how much each variable affects the final speed
     float Kp = 3.5; // Proportional makes the speed proportional to the error
 
@@ -416,11 +431,19 @@ using namespace vex;
     // Integral is often used to to overcome friction at the end due to derivative
 
     float Kd = 0.3; // Derivative slows down the speed if it is too fast
+*/
+    
+    float Kp = 8.5; // Proportional makes the speed proportional to the error
+
+    float Ki = 0.001; // Integral accumulates error to the speed over time
+    // Integral is often used to to overcome friction at the end due to derivative
+
+    float Kd = 1;//45.0; // Derivative slows down the speed if it is too fast
 
 
     // Don't let the integral term have too much control
     float integralPowerLimit = 40 / Ki; // little less than half power
-    float integralActiveZone = 15; // Only start accumulating integral
+    float integralActiveZone = 10; // Only start accumulating integral
     float errorThreshold = 0.25; // Exit loop when error is less than this
 
     float speed = 0;
@@ -445,6 +468,16 @@ using namespace vex;
       speed = (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative); // Multiply each variable by its tuning constant
       speed =  keepInRange(speed, -maxSpeed, maxSpeed); // Restrict the absolute value of speed to the maximum allowed value
 
+
+      if (speed > 0 && speed < 2)
+      {
+        speed = 2;
+      }
+      if (speed < 0 && speed > -2)
+      {
+        speed = -2;
+      }
+
       Brain.Screen.printAt(210, 140, "P: %.1f, I: %.1f, D: %.1f    ", (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative));
     }
     else
@@ -464,16 +497,15 @@ using namespace vex;
   // The target angle is relative to the starting angle of the robot in degrees
   float odomTurnPID(double target, double maxSpeed)
   {
-    float Kp = 1;
-    float Ki = 0.01;
-    float Kd = 1;
+    float Kp = 0.55;
+    float Ki = 0.001;//0.01;
+    float Kd = 0.55;//1;
     float integralPowerLimit =
         40 / Ki;                   // little less than half power
     float integralActiveZone = 15; // degrees to start accumulating to integral
     float errorThreshold = 0.5; // Exit loop when error is less than this
 
     float speed = 0;
-
 
     turn_error = target - getDegrees(); // The error is the relative angle to the target angle
 
@@ -574,13 +606,13 @@ using namespace vex;
   }
 
 
-  
 
   // Turn to and move to the global target point simultaneously. Limit the maximum speeds of the forward and turning.
   // Modifying the ratio of turn and forward speed can change the final angle of the bot when it reaches the target
   void moveTo(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
+    stopTime = 0;
 
     // Current components of final speed to be summed up
     double curFwdSpeed = 1;
@@ -590,80 +622,11 @@ using namespace vex;
     targetX = x;
     targetY = y;
     targetDistance = distanceTo(targetX, targetY, globalX, globalY);
-    
-    bool followPosition = true;
-    double lastDistToGo = 0; // Keeps track of the last couple inches to finish off the movement
 
-    // Run while forward pid is active
-    // When PID is within its acceptable error threshold the speed it returns is 0
-    while (curFwdSpeed != 0)// && !isStopped())
-    {
-      // When close to target, don't follow the position, just go forward
-      // so the robot doesn't run in circles trying to pinpoint the exact position
-      if (fabs(targetDistance) < 3)
-      {
-        followPosition = false;
-      }
-
-      if (followPosition)
-      {
-
-        targetDistance = distanceTo(targetX, targetY, globalX, globalY);
-        targetDeg = getDegToPosition(targetX, targetY);
-        
-        curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
-
-        // When needing to turn a lot, use turn pid
-        if (fabs( targetDeg - getDegrees() ) > 3)
-        {
-          curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
-        }
-        else  // when maintaining current angle, use driveStraight PID
-        {
-          curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
-        }
-
-        lastDistToGo = getTotalDistance(); // keep track of the last distance to go until robot stops following position
-
-      }
-      else // when close to target, just move forward the last little distance and don't turn
-      {
-        double desiredDistance = lastDistToGo + targetDistance; // add the last inch or so to the desired distance
-        curFwdSpeed = odomFwdPID(desiredDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
-        curTurnSpeed = 0;
-      }
-
-
-      leftDrive(curFwdSpeed - curTurnSpeed);
-      rightDrive(curFwdSpeed + curTurnSpeed);
-      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
-      task::sleep(5);
-    }
-
-    Brain.Screen.printAt(210, 120, "moveTo() done.                    ");
-  }
-
-
-
-
-  // attempt to make moveTo code more straightforward
-  void moveToNew(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
-  {
-    resetTotalDistance();
-
-    // Current components of final speed to be summed up
-    double curFwdSpeed = 1;
-    double curTurnSpeed = 1;
-
-    // Update the global target variables
-    targetX = x;
-    targetY = y;
-    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
-    
     // Run while forward pid is active
     // When PID is within its acceptable error threshold it returns 0 speed
     // Only turn when farther than a few inches
-    while (curFwdSpeed != 0 && fabs(targetDistance) > 3 && !isStopped())
+    while (curFwdSpeed != 0 && fabs(targetDistance) > 3/* && !isStopped()*/)
     {
       targetDistance = distanceTo(targetX, targetY, globalX, globalY);
       targetDeg = getDegToPosition(targetX, targetY);
@@ -671,14 +634,14 @@ using namespace vex;
       curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
 
       // When needing to turn a lot, use turn pid
-      if (fabs( targetDeg - getDegrees() ) > 3)
-      {
-        curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
-      }
+      /*if (fabs( targetDeg - getDegrees() ) > 3)
+      {*/
+      curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
+      /*}
       else  // when maintaining current angle, use driveStraight PID
       {
         curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
-      }
+      }*/
       
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
@@ -690,7 +653,7 @@ using namespace vex;
     // so the bot doesn't run in circles around the point if it overshoots by a hair
     double pureFwdDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
 
-    while (curFwdSpeed != 0 && !isStopped())
+    while (curFwdSpeed != 0/* && !isStopped()*/)
     {
       curFwdSpeed = odomFwdPID(pureFwdDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
       curTurnSpeed = 0;
@@ -700,75 +663,77 @@ using namespace vex;
       Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
       task::sleep(5);
     }
+    stopBase();
 
     Brain.Screen.printAt(210, 120, "moveTo() done.                    ");
   }
 
 
 
-  // Turn and move backwards simultaneously to the target global position.
+
+  // Turn to and move to the global target point simultaneously. Limit the maximum speeds of the forward and turning.
+  // Modifying the ratio of turn and forward speed can change the final angle of the bot when it reaches the target
   void moveToRev(double x, double y, double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
+    stopTime = 0;
 
     // Current components of final speed to be summed up
     double curFwdSpeed = 1;
     double curTurnSpeed = 1;
 
+    // Update the global target variables
     targetX = x;
     targetY = y;
-    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+    targetDistance = -distanceTo(targetX, targetY, globalX, globalY);
     
-    bool followPosition = true;
-    double lastDistToGo = 0; // Keeps track of the last couple inches to finish off the movement
-
     // Run while forward pid is active
-    while (curFwdSpeed != 0)
+    // When PID is within its acceptable error threshold it returns 0 speed
+    // Only turn when farther than a few inches
+    while (curFwdSpeed != 0 && fabs(targetDistance) > 3/* && !isStopped()*/)
     {
-      // When close to target, don't follow the position, just go forward
-      // so the robot doesn't run in circles trying to pinpoint the exact position
-      if (fabs(targetDistance) < 2)
+      targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // negative
+      targetDeg = getDegToPosition(targetX, targetY);
+      targetDeg = angleWrap(targetDeg - 180, getDegrees()); // angle is 180 degrees so it faces backwards
+      
+      curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
+
+      // When needing to turn a lot, use turn pid
+      /*if (fabs( targetDeg - getDegrees() ) > 3)
+      {*/
+        curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
+      /*}
+      else  // when maintaining current angle, use driveStraight PID
       {
-        followPosition = false;
-      }
-
-      if (followPosition)
-      {
-      // set the target global variables to reflect the given parameters
-        targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // distance is negative
-
-        targetDeg = getDegToPosition(targetX, targetY);
-        targetDeg = angleWrap(targetDeg - 180, getDegrees()); // angle is 180 degrees so it faces backwards
-
-        curFwdSpeed = odomFwdPID(targetDistance, maxFwdSpeed); // calculate pid forward speed
-
-        // When needing to turn a lot, use turn pid
-        if (fabs( targetDeg - getDegrees() ) > 3)
-        {
-          curTurnSpeed = odomTurnPID(targetDeg, maxTurnSpeed);
-        }
-        else  // when maintaining current angle, use driveStraight PID
-        {
-          curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
-        }
-
-        lastDistToGo = getTotalDistance(); // use as the initial position of final forward
-      }
-      else // when close to target, just move forward the last little distance and don't turn
-      {
-        curFwdSpeed = odomFwdPID(lastDistToGo + targetDistance - getTotalDistance(), maxFwdSpeed);
-        curTurnSpeed = 0;
-      }
-
+        curTurnSpeed = odomDriveStraightPID(targetDeg, maxTurnSpeed); // limit max speed here
+      }*/
+      
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
       Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
       task::sleep(5);
     }
 
+    // When within a few inches of the point, just move foward without turning
+    // so the bot doesn't run in circles around the point if it overshoots by a hair
+    double pureFwdDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
+
+    while (curFwdSpeed != 0/* && !isStopped()*/)
+    {
+      curFwdSpeed = odomFwdPID(pureFwdDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
+      curTurnSpeed = 0;
+      
+      leftDrive(curFwdSpeed);
+      rightDrive(curFwdSpeed);
+      Brain.Screen.printAt(210, 120, "target: (%.1f, %.1f) %.1f deg", targetX, targetY, targetDeg);
+      task::sleep(5);
+    }
+    stopBase();
+
     Brain.Screen.printAt(210, 120, "moveTo() done.                    ");
   }
-  
+
+
 
   // Waypoints are a point the robot follows but doesn't stop at
   // Waypoints allow more control over the path of the robot
@@ -781,7 +746,6 @@ using namespace vex;
 
     double initialX = globalX;
     double initialY = globalY;
-
 
     targetX = x;
     targetY = y;
@@ -1008,6 +972,32 @@ using namespace vex;
 
 
 
+float lastGraphX = 0;
+float lastGraphY = 0;
+// Display the graph of a variable over time
+void graph()
+{
+  float x = timer::system()/25;
+  float y = totalDistance * 100; //LFBASE.velocity(rpm);
+
+  // draw y = 0 line
+  Brain.Screen.setPenWidth(1);
+  Brain.Screen.setPenColor(color(255, 255, 255));
+  Brain.Screen.setFillColor(color(255, 255, 255));
+  Brain.Screen.drawLine(0, 136, 480, 136);
+
+  // Draw data
+  Brain.Screen.setPenWidth(1);
+  Brain.Screen.setPenColor(color(255, 150, 0));
+  Brain.Screen.setFillColor(color(255, 150, 0));
+  Brain.Screen.drawLine(lastGraphX, lastGraphY + 136, x, y + 136);
+  
+  lastGraphX = x;
+  lastGraphY = y;
+}
+
+
+
 void debug()
 {
 
@@ -1018,10 +1008,11 @@ void debug()
   Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getDegrees());
   Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f S:%.1f    ", getLeftReading(), getRightReading(), getSideReading());
-  //Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
-  Brain.Screen.printAt(210, 90, "Stoptime: %d   ", stopTime);
-  
-  Brain.Screen.printAt(210, 110, "isStopped: %d   ", fabs(deltaLeft) < 0.001);
+  Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
+
+/*
+  Brain.Screen.printAt(210, 110, "Stoptime: %d   ", stopTime);
+  Brain.Screen.printAt(210, 130, "isStopped: %d   ", isStopped());*/
   
   /*
   Brain.Screen.printAt(210, 110, "lir: %.1f  aaom: %.1f", lastInertialRadians * toDegrees, absoluteAngleOfMovement * toDegrees);
@@ -1038,21 +1029,27 @@ int backgroundTasks()
     updatePosition(); // Update the odometry position
     // Draw the debug values and the field dashboard
 
-    if (fabs(deltaRight) < 0.001)
-    {
-      stopTime += 1;
-    }
-    else
-    {
-      stopTime = 0;
-    }
-
     debug();
     draw();
+    //graph();
     task::sleep(10); // Wait some time between odometry cycles. Test making it shorter for better position estimates
   }
   return 0;
 }
+
+int test()
+{
+  while (getTotalDistance() < 10)
+  {
+    task::sleep(10);
+  } 
+  Brain.Screen.setFillColor(color(200, 80, 30)); // green in rgb
+  Brain.Screen.setPenWidth(0);
+  Brain.Screen.drawRectangle(0, 0, 480, 272); // fill entire screen
+
+  return 0;
+}
+
 
 
 
@@ -1076,8 +1073,84 @@ int main()
 
   task a(backgroundTasks); // Initiate the background tasks
 
-  setTarget(30,0);
-  moveToTarget(15,10);
+/*
+setTarget(-25,0);
+//moveToTarget(45,5);
+turnToTarget(25);
+*/
+
+setTarget(16,8);
+passTarget(15,10);
+
+setTarget(18,12.5);
+moveToTarget(15,10);
+
+/*setTarget(25,25);
+passTarget(35,15);
+
+setTarget(30,-10);
+moveToTarget(35,25);
+
+setTarget(15,-5);
+passTarget(8,15);
+
+setTarget(0,0);
+moveToTarget(20,8);*/
+
+/* s shape
+  setTarget(20, 0);
+  passTarget(30, 10);
+
+  setTarget(20, 20);
+  passTarget(30, 40);
+
+  setTarget(0, 20);
+  passTarget(30, 40);
+  
+  setTarget(0, 0);
+  passTarget(30, 40);
+  
+
+  setTarget(-20, 0);
+  passTarget(30, 40);
+
+  setTarget(-20, 20);
+  passTarget(30, 40);
+
+  setTarget(0, 0);
+  moveToTarget(30, 40);
+*/
+
+
+  /*
+  setTarget(10, 0);
+  moveToTarget(25, 15);*/
+
+
+  //setTarget(10, 0);
+
+
+
+
+  //resetTotalDistance();
+  //task p(test);
+  //setTarget(40,0);
+  //moveToTarget(35,10);
+
+  //setTarget(-15,-25);
+  //moveToTargetRev(25,4);
+   
+
+
+
+  /*setTarget(24,0);
+  moveToTarget(100, 20);*/
+
+
+
+
+  /*setTarget(30,0);
+  moveToTarget(15,10);*/
 
   /*setTarget(30, -21);
   passTarget(45,8.5);
@@ -1095,7 +1168,6 @@ int main()
   moveToTarget(40,10);
   setTarget(0,0);
   passTarget(40,30);*/
-
 
 
   //field testing
@@ -1224,7 +1296,7 @@ int main()
       targetX = screenToGlobalX(Brain.Screen.xPosition());
       targetY = screenToGlobalY(Brain.Screen.yPosition());
       //turnTo(targetX, targetY, 20);
-      moveTo(targetX, targetY, 20, 25);
+      moveTo(targetX, targetY, 25, 20);
       //moveTo(0, 0, 20, 25);
 
       /*updatePosition();
@@ -1253,9 +1325,9 @@ int main()
     else
     {
       // Control with joysticks if buttons are not used. Joystick value defaults to 0 when not touched so the speed will be 0.
-      leftDrive(controllerPrim.Axis3.value());
-      rightDrive(controllerPrim.Axis2.value());
-      //stopBase();
+      //leftDrive(controllerPrim.Axis3.value());
+      //rightDrive(controllerPrim.Axis2.value());
+      stopBase();
     }
 
     task::sleep(5);
