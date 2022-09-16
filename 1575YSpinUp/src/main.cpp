@@ -26,12 +26,12 @@ competition Competition;
 
   motor L1BASE(PORT13, true);
   motor L2BASE(PORT15, true);
-  motor L3BASE(PORT14); // reversed);
+  motor L3BASE(PORT14);
   motor L4BASE(PORT11, true);
 
-  motor R1BASE(PORT18); 
+  motor R1BASE_ROLLER(PORT18); 
   motor R2BASE(PORT20);
-  motor R3BASE(PORT19, true); // unreversed);
+  motor R3BASE(PORT19, true);
   motor R4BASE(PORT17);
 
 
@@ -48,7 +48,7 @@ competition Competition;
 
   controller controllerPrim(controllerType::primary);
 
-
+  digital_out PWT(TriportExt.A);
 
 // MATH FUNCTIONS /////////////////////////////////////////////
 
@@ -73,6 +73,7 @@ competition Competition;
   // Set the speeds of different sides of the base
   void leftDrive(double power)
   {
+    // check which motor setup is being used based on pto
     L1BASE.spin(fwd, power, pct);
     L2BASE.spin(fwd, power, pct);
     L3BASE.spin(fwd, power, pct);
@@ -81,7 +82,7 @@ competition Competition;
 
   void rightDrive(double power)
   {
-    R1BASE.spin(fwd, power, pct);
+    R1BASE_ROLLER.spin(fwd, power, pct);
     R2BASE.spin(fwd, power, pct);
     R3BASE.spin(fwd, power, pct);
     R4BASE.spin(fwd, power, pct);
@@ -100,14 +101,30 @@ competition Competition;
     L3BASE.stop(coast);
     L4BASE.stop(coast);
 
-    R1BASE.stop(coast);
+    R1BASE_ROLLER.stop(coast);
     R2BASE.stop(coast);
     R3BASE.stop(coast);
     R4BASE.stop(coast);
   }
 
+void pneumaticOn(){
+  PWT.set(1);
+}
 
+void pneumaticOff(){
+  PWT.set(0);
+}
 
+void toggleopneumatic(){
+  if (PWT.value() == 1)
+  {
+    PWT.set(0);
+  }
+  else 
+  {
+    PWT.set(1);
+  }
+}
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
@@ -165,9 +182,41 @@ void usercontrol(void) {
     // update your motors, etc.
     // ........................................................................
 
-    leftDrive(controllerPrim.Axis3.value());
-    rightDrive(controllerPrim.Axis2.value());
+    // not gonna be this simple
+    // control schemes:
+    // 8m base
+    // 6m base + 1m flywheel + 1m intake
+    // 4m base + 3m flywheel + 1m intake
+    /*leftDrive(controllerPrim.Axis3.value());
+    rightDrive(controllerPrim.Axis2.value());*/
 
+
+    if (controllerPrim.ButtonR1.pressing())
+    {
+      R1BASE_ROLLER.spin(fwd, 100, pct);
+    }
+    else if (controllerPrim.ButtonR2.pressing())
+    {
+      R1BASE_ROLLER.spin(reverse, 100, pct);
+    }
+    else
+    {
+      R1BASE_ROLLER.stop(coast);
+    }
+
+    
+    if (controllerPrim.ButtonL1.pressing())
+    {
+      L1BASE.spin(fwd, 100, pct);
+    }
+    else if (controllerPrim.ButtonL2.pressing())
+    {
+      L1BASE.spin(reverse, 100, pct);
+    }
+    else
+    {
+      L1BASE.stop(coast);
+    }
 
     wait(20, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
