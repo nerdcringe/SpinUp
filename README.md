@@ -100,25 +100,40 @@ The total distance accumulated since the start of the current movement.
 
 PID is a way to move some distance or turn to some angle.
 The distance or angle from a target is called error. To reduce error precisely, PID adds up three variables to obtain a final speed value.
+Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd).
 
-#### P: Proportional
+
+### P: Proportional
 - Speed is proportional to error
-- Fast when error is high and slow when eror is low
-- Majority of the speed comes from P term
+- Fast when error is high and slow when error is low
+- Found by multiplying the error by Kp
 
-#### I: Integral
+##### Tuning
+ - Set to a moderate value (around 5.0)
+ - Increase if not fully reaching target.
+ - Decrease if overshooting slightly.
+
+
+### I: Integral
 - Speed is the accumulated error
 - Accumulates if far away from the target for a while
 - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
 
-#### D: Derivative
+##### Tuning
+- Increase Ki if the robot stops before the target.
+- Decrease Ki if the target is overshot and it takes a while to correct itself
+
+### D: Derivative
 - Speed is rate of change of the error
-- If position is changing too fast, smooth out those changes
-- Dampens any unwanted oscillations while trying to settle towards the target
+- Smooths out rapid changes in error when moving quickly due to P and I
+- Dampens any unwanted oscillations and overshoot
 
+##### Tuning
+- Increase Kd if the robot overshoots or oscillates around the target.
+- Decrease Kd if the robot stops before the target.
 
-Each term has a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd).
-If you want the speed to be purely proportional to distance, set Kp to any number but set Ki and Kd to 0.
+Generally, P and I increase speed and D decreases speed. P is the majority of the speed, especially at the start of the movement. Then, towards the middle, it should slow down until I kicks in and speeds it up slightly. At the end, D reduces overshoot and oscillations around the target value. The nuances of each variable are kind of intuitional.
+
 
 ##### PID Pseudocode
 ```
@@ -138,14 +153,14 @@ while (running)
 }
 ```
 
-The PID values for moving a set number of inches is around
+Approximate PID tuning values for distance (inches)
 ```
 float Kp = 5;
 float Ki = 0.01;
 float Kd = 1;
 ```
 
-The PID values for turning to some degree is around
+Approximate PID tuning values for turning to a degree
 ```
 float Kp = 0.6;
 float Ki = 0.001;
@@ -155,6 +170,17 @@ float Kd = 0.5;
 
 
 ## Using odometry in autonomous
+
+Traditionally, VEX robots are controlled with commands to move relative to its current position. *Move forward, backward, turn 90 degrees, etc*. However, any obstacle in the robot's path could alter its direction and the code wouldn't be able to tell the difference. Odometry lets the code track the robot's x and y coordinates, which allows the path to be corrected. It is also more accurate to move in arc-shaped paths when odometry data is collected.
+
+To use a comprehensive and reliable odometry system, certain math conventions must be followed:
+- +x is right, -x is left, +y is up, -y is down
+- The initial position of the robot is (0, 0)
+- 0 degrees is on the positive x-axis
+- Positive angles are counter-clockwise from 0 degrees
+
+
+
 Moving to a point first involves a command to set the target position. Afterwards, you may move to or turn to that target point.
  
 ```
@@ -187,11 +213,10 @@ In autonomous, reset the distance tracker and start the task.
 resetTotalDistance()
 task a(startIntake10); // Setup the task to start the intake after 10 inches 
 
-linearPID(20, 25); // Move forward 20 inches (intake will start after 10 inches)
+forwardPID(20, 25); // Move forward 20 inches (intake will start after 10 inches)
 ... 
 ```
  
-
 
 
 ## Adding pneumatics to driver control
