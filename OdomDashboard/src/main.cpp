@@ -41,15 +41,16 @@ using namespace vex;
     To reduce error precisely, PID uses three variables
 
       P: Proportional
-        - Majority of the speed comes from 
+        - Fast when error is high and slow when eror is low
+        - Majority of the speed comes from P term
       
       I: Integral
         - Accumulates if far away from the target for a while
         - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
 
       D: Derivative
-        - If position is changing too fast, smooth it out
-        - Dampens any
+        - If position is changing too fast, smooth out those changes
+        - Dampens any unwanted oscillations while trying to settle towards the target
 
   */
 
@@ -374,18 +375,8 @@ using namespace vex;
   // Run one cycle of PID to obtain the speed to move to the target
   // Instead of having separate loops for moving forward and turning,
   // odometry movement uses these calculated PID speeds to move forward and turn simultaneously
-  float fwdPIDCycle(double error, double maxSpeed)
-  {
-    /*
-    // PID constants to tune how much each variable affects the final speed
-    float Kp = 3.5; // Proportional makes the speed proportional to the error
-
-    float Ki = 0.005; // Integral accumulates error to the speed over time
-    // Integral is often used to to overcome friction at the end due to derivative
-
-    float Kd = 0.3; // Derivative slows down the speed if it is too fast
-  */
-    
+  float fwdPIDCycle(double targetDist, double maxSpeed)
+  { 
     float Kp = 5; // Proportional makes the speed proportional to the error
 
     float Ki = 0.01; // Integral accumulates error to the speed over time
@@ -401,7 +392,7 @@ using namespace vex;
 
     float speed = 0;
 
-    fwd_error = error; // Error is the distance from the target
+    fwd_error = targetDist; // Error is the distance from the target
 
     if (fabs(fwd_error) > errorThreshold) // Check if error is over the acceptable threshold
     {
@@ -445,7 +436,7 @@ using namespace vex;
 
 
   // The target angle is relative to the starting angle of the robot in degrees
-  float turnPIDCycle(double error, double maxSpeed)
+  float turnPIDCycle(double targetDegree, double maxSpeed)
   {
     float Kp = 0.56;
     float Ki = 0.00075;//0.01;
@@ -457,7 +448,7 @@ using namespace vex;
 
     float speed = 0;
 
-    turn_error = error; // The error is the relative angle to the target angle
+    turn_error = targetDegree - getDegrees(); // The error is the relative angle to the target angle
 
     if (fabs(turn_error) > errorThreshold)
     {
@@ -490,18 +481,20 @@ using namespace vex;
   // Run a closed PID loop for liinear distance in inches
   void forwardPID(double targetInches, double maxSpeed, int timeoutMillis = -1) // default timeout is -1, meaning unlimited
   {
-    double curSpeed = 1;
+    double curentSpeed = 1;
 
     timer Timer;
     Timer.reset(); // start timer for timeout
 
     resetTotalDistance();
     // While time isn't up or time isn't set (default value of -1)
-    while (curSpeed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
+    while (curentSpeed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
     {
-      curSpeed = fwdPIDCycle(targetInches - getTotalDistance(), maxSpeed);
-      leftDrive(curSpeed);
-      rightDrive(curSpeed);
+      double currentDist = targetInches - getTotalDistance(); // calculate the distance from target
+
+      curentSpeed = fwdPIDCycle(currentDist, maxSpeed); // plug in distance and speed into PID
+      leftDrive(curentSpeed);
+      rightDrive(curentSpeed);
 
       task::sleep(10);
     }
@@ -513,18 +506,18 @@ using namespace vex;
   // Setting targetDeg to 0 degrees always returns to the starting angle
   void turnPID(double targetDeg, double maxSpeed, int timeoutMillis=-1) // default timeout is -1, meaning unlimited
   {
-    double curSpeed = 1;
+    double curentSpeed = 1;
 
     timer Timer;
     Timer.reset(); // start timer for timeout
 
     resetTotalDistance();
     // While time isn't up or time isn't set (default value of -1)
-    while (curSpeed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
+    while (curentSpeed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
     {
-      curSpeed = turnPIDCycle(targetDeg - getDegrees(), maxSpeed);
-      leftDrive(-curSpeed);
-      rightDrive(curSpeed);
+      curentSpeed = turnPIDCycle(targetDeg, maxSpeed);
+      leftDrive(-curentSpeed);
+      rightDrive(curentSpeed);
 
       task::sleep(10);
     }
@@ -611,8 +604,7 @@ using namespace vex;
     {
       targetDeg = getDegToPosition(targetX, targetY); // Obtain the closest angle to the target position
 
-      double angleError = targetDeg - getDegrees(); // Calculate the angle error (relative degrees to turn)
-      finalTurnSpeed = turnPIDCycle(angleError, maxTurnSpeed); // Plug angle error into turning PID and get the resultant speed
+      finalTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed); // Plug angle into turning PID and get the resultant speed
       
        // Turn in place towards the position
       leftDrive(-finalTurnSpeed);
@@ -650,7 +642,7 @@ using namespace vex;
       targetDeg = getDegToPosition(targetX, targetY);
       
       curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed); // calculate pid forward speed
-      curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed);
+      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
 
       
       leftDrive(curFwdSpeed - curTurnSpeed);
@@ -706,7 +698,7 @@ using namespace vex;
 
       // run one cycle of forwad and turn pid
       curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
-      curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed);
+      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
 
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
@@ -766,7 +758,7 @@ using namespace vex;
       if (fabs(targetDistance) > 2)
       {
         targetDeg = getDegToPosition(targetX, targetY);
-        curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed); // Run one cycle of turning PID
+        curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed); // Run one cycle of turning PID
       }
       else // stop turning when close to the target so the bot doesn't spin around trying to correct its position
       {
@@ -815,7 +807,7 @@ using namespace vex;
         targetDeg = getDegToPosition(targetX, targetY);
         targetDeg = angleWrap(targetDeg - 180); // angle is 180 degrees so it faces backwards
         
-        curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed);
+        curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
       }
       else // stop turning when close to the target so the bot doesn't spin around trying to correct its position
       {
@@ -1067,8 +1059,8 @@ moveToTarget(24,20);
     {
       targetX = screenToGlobalX(Brain.Screen.xPosition());
       targetY = screenToGlobalY(Brain.Screen.yPosition());
-      //turnToTarget(30);
-      passTarget(25, 25);
+      turnToTarget(30);
+      //moveToTarget(25, 25);
     }
     
     // control the robot more precisely than with joysticks
