@@ -24,15 +24,15 @@ competition Competition;
 
   // motors //
 
-  motor L1BASE(PORT13, true);
-  motor L2BASE(PORT15, true);
-  motor L3BASE(PORT14);
-  motor L4BASE(PORT11, true);
+  motor L1BASE(PORT15, true); // front
+  motor L2BASE(PORT17, true); // back top
+  motor L3BASE(PORT14); // back mid
+  motor L4BASE(PORT11, true); // back bottom
 
-  motor R1BASE_ROLLER(PORT18); 
-  motor R2BASE(PORT20);
+  motor R1BASE(PORT18); // front
+  motor R2BASE(PORT13); 
   motor R3BASE(PORT19, true);
-  motor R4BASE(PORT17);
+  motor R4BASE(PORT9);
 
 
   // Sensors & more //
@@ -40,15 +40,17 @@ competition Competition;
   inertial INERTIAL(PORT14);
 
   triport Triport(PORT22); // Get reference for three-wire ports on brain
-  encoder encoderL(Triport.A); // left tracking wheel
-  encoder encoderR(Triport.C); // right tracking wheel
-  encoder encoderS(Triport.E); // sideways tracking wheel. Testing to see if we need this to deal with drift
+
+  digital_out PWT(Triport.A);
+
 
   triport TriportExt(PORT9); // Get reference for three wire extender
+  encoder encoderL(TriportExt.A); // left tracking wheel
+  encoder encoderR(TriportExt.C); // right tracking wheel
+  encoder encoderS(TriportExt.E); // sideways tracking wheel. Testing to see if we need this to deal with drift
 
   controller controllerPrim(controllerType::primary);
 
-  digital_out PWT(TriportExt.A);
 
 // MATH FUNCTIONS /////////////////////////////////////////////
 
@@ -82,7 +84,7 @@ competition Competition;
 
   void rightDrive(double power)
   {
-    R1BASE_ROLLER.spin(fwd, power, pct);
+    R1BASE.spin(fwd, power, pct);
     R2BASE.spin(fwd, power, pct);
     R3BASE.spin(fwd, power, pct);
     R4BASE.spin(fwd, power, pct);
@@ -101,7 +103,7 @@ competition Competition;
     L3BASE.stop(coast);
     L4BASE.stop(coast);
 
-    R1BASE_ROLLER.stop(coast);
+    R1BASE.stop(coast);
     R2BASE.stop(coast);
     R3BASE.stop(coast);
     R4BASE.stop(coast);
@@ -182,15 +184,13 @@ void usercontrol(void) {
     // update your motors, etc.
     // ........................................................................
 
-    // not gonna be this simple
-    // control schemes:
-    // 8m base
-    // 6m base + 1m flywheel + 1m intake
-    // 4m base + 3m flywheel + 1m intake
-    /*leftDrive(controllerPrim.Axis3.value());
-    rightDrive(controllerPrim.Axis2.value());*/
+    // There's multiple control schemes
+
+    leftDrive(controllerPrim.Axis3.value());
+    rightDrive(controllerPrim.Axis2.value());
 
 
+/*
     if (controllerPrim.ButtonR1.pressing())
     {
       R1BASE_ROLLER.spin(fwd, 100, pct);
@@ -208,15 +208,21 @@ void usercontrol(void) {
     if (controllerPrim.ButtonL1.pressing())
     {
       L1BASE.spin(fwd, 100, pct);
+      L2BASE.spin(fwd, 100, pct);
+      R2BASE.spin(fwd, 100, pct);
     }
     else if (controllerPrim.ButtonL2.pressing())
     {
       L1BASE.spin(reverse, 100, pct);
+      L2BASE.spin(reverse, 100, pct);
+      R2BASE.spin(reverse, 100, pct);
     }
     else
     {
       L1BASE.stop(coast);
-    }
+      L2BASE.stop(coast);
+      R2BASE.stop(coast);
+    }*/
 
     wait(20, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
@@ -231,6 +237,8 @@ int main() {
   // Set up callbacks for autonomous and driver control periods.
   Competition.autonomous(autonomous);
   Competition.drivercontrol(usercontrol);
+
+  controllerPrim.ButtonA.pressed(toggleopneumatic);
 
   // Run the pre-autonomous function.
   pre_auton();

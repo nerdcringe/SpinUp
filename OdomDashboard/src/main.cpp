@@ -15,18 +15,48 @@ using namespace vex;
 
 // VARIABLES ////////////////////////////////
 
+  // CONSTANTS //
+
   #define PI 3.14159265
   const double toRadians = PI / 180.0; // multiply degrees by this to convert to radians
   const double toDegrees = 180.0 / PI; // multiply radians by this to convert to degrees
-  const double WHEEL_CIRCUMFERENCE = 3.25 * PI; // Circumferebce of the powered wheels (diameter * PI)
-  const double TRACKING_CIRCUMFERENCE = 2.75 * PI; // Circumferebce of the tracking wheels (diameter * PI)
+
+  //const double WHEEL_CIRCUMFERENCE = 3.25 * PI; // Circumference of powered wheels (diameter * PI)
+  const double TRACKING_CIRCUMFERENCE = 2.75 * PI; // Circumference of tracking wheels (diameter * PI)
+
+  // tracking wheel perpendicular distances from true center of robot.
+  // Seen at page 4 of Pilons odometry doc (http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf)
+  const double leftOffset =  4.875; // left
+  const double rightOffset = 4.875; // right
+  const double sideOffset = 0.25; // sideways
+
 
 
   // PID VARIABLES //
-  float fwd_error = 0; // Distance from the target forward distance
-  float fwd_lastError = 0;
-  float fwd_integral = 0; // integral accumulates the error, speeding up if target is not reached fast enough
-  float fwd_derivative = 0; // Derivative smooths out any oscillations at the end of the movement
+
+  /*
+    PID is a way to move some distance or turn to some angle.
+    The distance or angle from a target is called error.
+
+    To reduce error precisely, PID uses three variables
+
+      P: Proportional
+        - Majority of the speed comes from 
+      
+      I: Integral
+        - Accumulates if far away from the target for a while
+        - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
+
+      D: Derivative
+        - If position is changing too fast, smooth it out
+        - Dampens any
+
+  */
+
+  float fwd_error = 0; // Distance from target forward distance
+  float fwd_lastError = 0; // Keep track of last error for the derivative (rate of change)
+  float fwd_integral = 0; // Integral accumulates the error, speeding up if target is not reached fast enough
+  float fwd_derivative = 0; // Derivative smooths out oscillations and counters sudden changes
 
   float turn_error = 0; // Relative angle from the target rotation (degrees)
   float turn_lastError = 0;
@@ -36,29 +66,21 @@ using namespace vex;
 
   // ODOMETRY VARIABLES //
 
-  // *** Current global position on the field ***
-  // These values always start at (0, 0) so everything is relative to the starting location
+  // *** Global position on the field ***
+  // These values always start at (0, 0) so everything is relative to the starting location of the robot
   double globalX = 0;
   double globalY = 0;
 
-  double absoluteAngleOfMovement = 0;
-
-  // tracking wheel perpendicular distances from center.
-  // Seen at page 4 of http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf
-  const double leftOffset =  4.875; // left
-  const double rightOffset = 4.875; // right
-  const double sideOffset = 0.25;//-0.75; // sideways
-
-  // Current value of tracking wheel encoder positions
+  // Current positions of tracking wheel encoders
   float curLeft = 0;
   float curRight = 0;
   float curSide = 0;
 
-  // Values of tracking wheel encoder positions and inertial radians since last update
+  // Positions of tracking wheel encoders from last update
   float lastLeftPos = 0;
   float lastRightPos = 0;
   float lastSidePos = 0;
-  double lastInertialRadians = 0;
+  double lastInertialRadians = 0; // Angle (radians) returned by inertial sensor from last update
 
   // Change in tracking wheel encoder positions since last update
   float deltaLeft = 0;
@@ -72,23 +94,27 @@ using namespace vex;
   double deltaX = 0;
   double deltaY = 0;
 
-  // Distance moved relative to the bot's direction
+  // Distance moved in the bot's direction
   float deltaDistance;
   float deltaDistanceSideways;
+  // The direction of the movement tracked by odometry, in radians
+  double absoluteAngleOfMovement = 0;
+
 
   // Accumulates the distance traveled during the current movement (replaces motor encoders)
   // Check if this is above a certain amount to start parallel tasks after moving a certain distance
   float totalDistance = 0;
 
-  
+
   // Position and angle to the current target point
   double targetX = 0;
   double targetY = 0;
-  double targetDistance = 0; // current distance from target point
   double targetDeg = 0;
 
+  double targetDistance = 0; // Current straightest path distance to target point
 
- bool exitLoop = false;
+
+  //bool exitLoop = false; // Exit a movement loop if robot is stuck and encoders don't detect movement
 
 // DEVICES ///////////////////////////////////
 
@@ -160,36 +186,18 @@ using namespace vex;
 
 
   // Find the distance between two points
-  double distanceTo(double x1, double y1, double x2, double y2)
+  double distanceTo(double x1, double y1)
   {
-      return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) * 1.0);
+      return sqrt(pow(globalX - x1, 2) + pow(globalY - y1, 2) * 1.0);
   }
-
-
-  // Keep rotation within 180 degrees of the reference angle (current inertial sensor angle)
-  // If an angle is over 180 degrees away, this makes the bot turn the other direction because it is faster
-  double angleWrap(double a, double referenceAngle)
-  {
-    while(a > referenceAngle + 180) // Subtract 360 if angle is too large
-    {
-      a -= 360;
-    }
-    while(a <= referenceAngle - 180) // Add 360 if angle is too large
-    {
-      a += 360;
-    }
-
-    return a; // Return the new closest angle
-  }
-
 
 
 
 // SENSOR FUNCTIONS ///////////////////////////////////////////////////////
 
-  // Don't really need motor encoder functions as tracking wheels can do it more accurately
+  // Old motor encoder distance tracking
   /*
-  double getMotorPos()
+  double getTotalDistance() // return average motor encoder value
   {
     double sum = LFBASE.rotation(deg)
               // + LM1BASE.rotation(deg)
@@ -202,7 +210,7 @@ using namespace vex;
     return ticksToInches(sum) / 4;
   }
 
-  void clearMotorPos()
+  void resetTotalDistance()
   {
     
     RFBASE.resetRotation();
@@ -286,6 +294,24 @@ using namespace vex;
 
 
 
+  // Keep rotation within 180 degrees of the reference angle (current inertial sensor angle)
+  // If an angle is over 180 degrees away, this makes the bot turn the other direction because it is faster
+  double angleWrap(double a)
+  {
+    double robotAngle = getDegrees();
+    while(a > robotAngle + 180) // Subtract 360 if angle is too large
+    {
+      a -= 360;
+    }
+    while(a <= robotAngle - 180) // Add 360 if angle is too large
+    {
+      a += 360;
+    }
+
+    return a; // Return the new closest angle
+  }
+
+
   // Obtain the angle to any position from the robot's current position
   double getDegToPosition(double x, double y)
   {
@@ -298,7 +324,7 @@ using namespace vex;
 
     // Prevent the robot from targeting a rotation over 180 degrees from its current rotation.
     // If it's more than 180 it's faster to turn the other direction
-    degToPosition = angleWrap(degToPosition, getDegrees());
+    degToPosition = angleWrap(degToPosition);
     
     return degToPosition;
   }
@@ -348,7 +374,7 @@ using namespace vex;
   // Run one cycle of PID to obtain the speed to move to the target
   // Instead of having separate loops for moving forward and turning,
   // odometry movement uses these calculated PID speeds to move forward and turn simultaneously
-  float fwdPIDCycle(double target, double maxSpeed)
+  float fwdPIDCycle(double error, double maxSpeed)
   {
     /*
     // PID constants to tune how much each variable affects the final speed
@@ -365,7 +391,7 @@ using namespace vex;
     float Ki = 0.01; // Integral accumulates error to the speed over time
     // Integral is often used to to overcome friction at the end due to derivative
 
-    float Kd = 10;//45.0; // Derivative slows down the speed if it is too fast
+    float Kd = 1;//45.0; // Derivative slows down the speed if it is too fast
 
 
     // Don't let the integral term have too much control
@@ -375,7 +401,7 @@ using namespace vex;
 
     float speed = 0;
 
-    fwd_error = target; // Error is the distance from the target
+    fwd_error = error; // Error is the distance from the target
 
     if (fabs(fwd_error) > errorThreshold) // Check if error is over the acceptable threshold
     {
@@ -419,11 +445,11 @@ using namespace vex;
 
 
   // The target angle is relative to the starting angle of the robot in degrees
-  float turnPIDCycle(double target, double maxSpeed)
+  float turnPIDCycle(double error, double maxSpeed)
   {
-    float Kp = 0.55;
-    float Ki = 0.0001;//0.01;
-    float Kd = 0.55;//1;
+    float Kp = 0.56;
+    float Ki = 0.00075;//0.01;
+    float Kd = 0.5;//1;
     float integralPowerLimit =
         40 / Ki;                   // little less than half power
     float integralActiveZone = 15; // degrees to start accumulating to integral
@@ -431,7 +457,7 @@ using namespace vex;
 
     float speed = 0;
 
-    turn_error = target - getDegrees(); // The error is the relative angle to the target angle
+    turn_error = error; // The error is the relative angle to the target angle
 
     if (fabs(turn_error) > errorThreshold)
     {
@@ -461,7 +487,8 @@ using namespace vex;
   }
 
 
-  void forwardPID(double target, double maxSpeed, int timeoutMillis = -1) // default timeout is -1, meaning unlimited
+  // Run a closed PID loop for liinear distance in inches
+  void forwardPID(double targetInches, double maxSpeed, int timeoutMillis = -1) // default timeout is -1, meaning unlimited
   {
     double curSpeed = 1;
 
@@ -472,7 +499,7 @@ using namespace vex;
     // While time isn't up or time isn't set (default value of -1)
     while (curSpeed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
     {
-      curSpeed = fwdPIDCycle(target - getTotalDistance(), maxSpeed);
+      curSpeed = fwdPIDCycle(targetInches - getTotalDistance(), maxSpeed);
       leftDrive(curSpeed);
       rightDrive(curSpeed);
 
@@ -481,8 +508,10 @@ using namespace vex;
     stopBase();
   }
 
-
-   void turnPID(double target, double maxSpeed, int timeoutMillis=-1) // default timeout is -1, meaning unlimited
+  
+  // Run a closed PID loop for turning to a specific absolute degree
+  // Setting targetDeg to 0 degrees always returns to the starting angle
+  void turnPID(double targetDeg, double maxSpeed, int timeoutMillis=-1) // default timeout is -1, meaning unlimited
   {
     double curSpeed = 1;
 
@@ -493,7 +522,7 @@ using namespace vex;
     // While time isn't up or time isn't set (default value of -1)
     while (curSpeed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
     {
-      curSpeed = turnPIDCycle(target, maxSpeed);
+      curSpeed = turnPIDCycle(targetDeg - getDegrees(), maxSpeed);
       leftDrive(-curSpeed);
       rightDrive(curSpeed);
 
@@ -501,7 +530,6 @@ using namespace vex;
     }
     stopBase();
   }
-
 
 
 
@@ -563,11 +591,10 @@ using namespace vex;
     lastSidePos = curSide;
     lastInertialRadians = getRadians();
   }
-
   
 
   
-
+  // Set the current target position that will be referenced by later movement functions
   void setTarget(double x, double y)
   {
     targetX = x;
@@ -575,15 +602,17 @@ using namespace vex;
   }
   
 
-  // Turn to face a global point on the field from the robot's current location
-  void turnToTarget(double turnSpeed)
+  // Turn to face the target position, regardless of the robot's current position
+  void turnToTarget(double maxTurnSpeed)
   {
     double finalTurnSpeed = 1;
 
     while (finalTurnSpeed != 0)
     {
       targetDeg = getDegToPosition(targetX, targetY); // Obtain the closest angle to the target position
-      finalTurnSpeed = turnPIDCycle(targetDeg, turnSpeed);
+
+      double angleError = targetDeg - getDegrees(); // Calculate the angle error (relative degrees to turn)
+      finalTurnSpeed = turnPIDCycle(angleError, maxTurnSpeed); // Plug angle error into turning PID and get the resultant speed
       
        // Turn in place towards the position
       leftDrive(-finalTurnSpeed);
@@ -610,18 +639,18 @@ using namespace vex;
     double curTurnSpeed = 1;
 
     // Update the global target variables
-    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+    targetDistance = distanceTo(targetX, targetY);
 
     // Run while forward pid is active
     // When PID is within its acceptable error threshold it returns 0 speed
     // Only turn when farther than a few inches
     while (curFwdSpeed != 0 && fabs(targetDistance) > 3/* && !isStopped()*/)
     {
-      targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+      targetDistance = distanceTo(targetX, targetY);
       targetDeg = getDegToPosition(targetX, targetY);
       
       curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed); // calculate pid forward speed
-      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+      curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed);
 
       
       leftDrive(curFwdSpeed - curTurnSpeed);
@@ -664,20 +693,20 @@ using namespace vex;
     double curTurnSpeed = 1;
 
     // Update the global target variables
-    targetDistance = -distanceTo(targetX, targetY, globalX, globalY);
+    targetDistance = -distanceTo(targetX, targetY);
     
     // Run while forward pid is active
     // When PID is within its acceptable error threshold it returns 0 speed
     // Only turn when farther than a few inches
     while (curFwdSpeed != 0 && fabs(targetDistance) > 3/* && !isStopped()*/)
     {
-      targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // negative
+      targetDistance = -distanceTo(targetX, targetY); // negative
       targetDeg = getDegToPosition(targetX, targetY);
-      targetDeg = angleWrap(targetDeg - 180, getDegrees()); // angle is 180 degrees so it faces backwards
+      targetDeg = angleWrap(targetDeg - 180); // angle is 180 degrees so it faces backwards
 
       // run one cycle of forwad and turn pid
       curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
-      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+      curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed);
 
       leftDrive(curFwdSpeed - curTurnSpeed);
       rightDrive(curFwdSpeed + curTurnSpeed);
@@ -701,13 +730,13 @@ using namespace vex;
     }
     stopBase();
 
-    Brain.Screen.printAt(210, 120, "moveTo() done.                    ");
+    Brain.Screen.printAt(210, 120, "moveToTarget() done.                    ");
   }
 
 
 
-  // Waypoints are a point the robot follows but doesn't stop at
-  // Waypoints allow more control over the path of the robot
+  // Pass the point but don't stop at it
+  // This allows more control over the path of the robot by setting interrmediate locations
   void passTarget(double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
@@ -718,7 +747,7 @@ using namespace vex;
     double initialX = globalX;
     double initialY = globalY;
 
-    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+    targetDistance = distanceTo(targetX, targetY);
     
     bool passedX = false;
     bool passedY = false;
@@ -731,13 +760,13 @@ using namespace vex;
       passedX = (initialX >= targetX && globalX <= targetX) || (initialX <= targetX && globalX >= targetX);
       passedY = (initialY >= targetY && globalY <= targetY) || (initialY <= targetY && globalY >= targetY);
 
-      targetDistance = distanceTo(targetX, targetY, globalX, globalY); // Get the distance to the target
+      targetDistance = distanceTo(targetX, targetY); // Get the distance to the target
 
       // only turn when far enough away from the target (farther than a couple of inches)
       if (fabs(targetDistance) > 2)
       {
         targetDeg = getDegToPosition(targetX, targetY);
-        curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed); // Run one cycle of turning PID
+        curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed); // Run one cycle of turning PID
       }
       else // stop turning when close to the target so the bot doesn't spin around trying to correct its position
       {
@@ -750,13 +779,11 @@ using namespace vex;
       task::sleep(5);
     }
 
-    Brain.Screen.printAt(210, 120, "moveToWaypoint() done.                    ");
+    Brain.Screen.printAt(210, 120, "passTarget() done.                    ");
   }
 
 
-
-  // Waypoints are a point the robot follows but doesn't stop at
-  // Waypoints allow more control over the path of the robot
+  // Pass the target in reverse
   void passTargetRev(double maxFwdSpeed, double maxTurnSpeed)
   {
     resetTotalDistance();
@@ -767,7 +794,7 @@ using namespace vex;
     double initialX = globalX;
     double initialY = globalY;
 
-    targetDistance = distanceTo(targetX, targetY, globalX, globalY);
+    targetDistance = distanceTo(targetX, targetY);
     
     bool passedX = false;
     bool passedY = false;
@@ -780,15 +807,15 @@ using namespace vex;
       passedX = (initialX >= targetX && globalX <= targetX) || (initialX <= targetX && globalX >= targetX);
       passedY = (initialY >= targetY && globalY <= targetY) || (initialY <= targetY && globalY >= targetY);
 
-      targetDistance = -distanceTo(targetX, targetY, globalX, globalY); // Get the distance to the target
+      targetDistance = -distanceTo(targetX, targetY); // Get the distance to the target
 
       // only turn when far enough away from the target (farther than a couple of inches)
       if (fabs(targetDistance) > 2)
       {
         targetDeg = getDegToPosition(targetX, targetY);
-        targetDeg = angleWrap(targetDeg - 180, getDegrees()); // angle is 180 degrees so it faces backwards
+        targetDeg = angleWrap(targetDeg - 180); // angle is 180 degrees so it faces backwards
         
-        curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+        curTurnSpeed = turnPIDCycle(targetDeg - getDegrees(), maxTurnSpeed);
       }
       else // stop turning when close to the target so the bot doesn't spin around trying to correct its position
       {
@@ -801,7 +828,7 @@ using namespace vex;
       task::sleep(5);
     }
 
-    Brain.Screen.printAt(210, 120, "moveToWaypoint() done.                    ");
+    Brain.Screen.printAt(210, 120, "passTargetRev() done.                    ");
   }
 
 
@@ -810,13 +837,14 @@ using namespace vex;
 // DISPLAY ///////////////////////////
 
 
+  const double tileDrawSize = 30; // tiles on screen have 30 pixel long sides
+
   // screen is 480 x 272
   // Draw a point on the display to represent a global position
   void drawPoint(double x, double y)
   {
-    double tile_size = 30;
-    double draw_pos_x = ((x / 24) * tile_size) + 105;
-    double draw_pos_y = ((-y / 24) * tile_size) + 105;
+    double draw_pos_x = ((x / 24) * tileDrawSize) + 105;
+    double draw_pos_y = ((-y / 24) * tileDrawSize) + 105;
     
     Brain.Screen.setPenWidth(0);
     Brain.Screen.drawCircle(draw_pos_x, draw_pos_y, 4);
@@ -829,16 +857,13 @@ using namespace vex;
   // Convert where the screen is tapped to global coordinates
   double screenToGlobalX(double screenX)
   {
-    double tile_size = 30;
-    return ((screenX - 105) / tile_size) * 24;;
+    return ((screenX - 105) / tileDrawSize) * 24;
   }
 
   // Convert where the screen is tapped to global coordinates
   double screenToGlobalY(double screenY)
   {
-    double tile_size = 30;
-
-    return -((screenY - 105) / tile_size) * 24;
+    return -((screenY - 105) / tileDrawSize) * 24;
   }
 
 
@@ -850,12 +875,11 @@ using namespace vex;
     Brain.Screen.setPenColor(color(100, 100, 100));
     Brain.Screen.setPenWidth(2);
 
-    int tile_size = 30;
     for (int x = 0; x < 6; x++)
     {
       for (int y = 0; y < 6; y++)
       {
-        Brain.Screen.drawRectangle(x * tile_size + 15, y * tile_size + 15, tile_size, tile_size); // fill entire screen
+        Brain.Screen.drawRectangle(x * tileDrawSize + 15, y * tileDrawSize + 15, tileDrawSize, tileDrawSize); // fill entire screen
       }
     }
     Brain.Screen.printAt(170, 100, "+x");
@@ -866,8 +890,8 @@ using namespace vex;
     // Draw robot
     Brain.Screen.setFillColor(white);
     Brain.Screen.setPenWidth(0);
-    double draw_pos_x = ((globalX/24) * tile_size) + 105;
-    double draw_pos_y = ((-globalY/24) * tile_size) + 105; // make y negative because down is positive on the screen
+    double draw_pos_x = ((globalX/24) * tileDrawSize) + 105;
+    double draw_pos_y = ((-globalY/24) * tileDrawSize) + 105; // make y negative because down is positive on the screen
 
     // Position of circle indicates the position found by odometry
     Brain.Screen.drawCircle(draw_pos_x, draw_pos_y, 6);
@@ -912,7 +936,7 @@ using namespace vex;
 
 
 
-void debug()
+void values()
 {
 
   Brain.Screen.setFillColor(color(10, 80, 30)); // Set background to green in rgb
@@ -924,12 +948,10 @@ void debug()
   Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f S:%.1f    ", getLeftReading(), getRightReading(), getSideReading());
   Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
 
-/*
-  Brain.Screen.printAt(210, 110, "Stoptime: %d   ", stopTime);
+  /* Brain.Screen.printAt(210, 110, "Stoptime: %d   ", stopTime);
   Brain.Screen.printAt(210, 130, "isStopped: %d   ", isStopped());*/
-  
-  /*
-  Brain.Screen.printAt(210, 110, "lir: %.1f  aaom: %.1f", lastInertialRadians * toDegrees, absoluteAngleOfMovement * toDegrees);
+
+  /* Brain.Screen.printAt(210, 110, "lir: %.1f  aaom: %.1f", lastInertialRadians * toDegrees, absoluteAngleOfMovement * toDegrees);
   Brain.Screen.printAt(210, 130, "dth: %.1f  dd:%.1f", deltaTheta * toDegrees, deltaDistance);
   Brain.Screen.printAt(210, 150, "dl:%.1f  dr:%.1f", deltaLeft, deltaRight);
   Brain.Screen.printAt(210, 170, "dx:%.1f  dy:%.1f", deltaX, deltaY);*/
@@ -943,7 +965,7 @@ int backgroundTasks()
     updatePosition(); // Update the odometry position
     // Draw the debug values and the field dashboard
 
-    debug();
+    values();
     draw();
     //graph();
     task::sleep(10); // Wait some time between odometry cycles. Test making it shorter for better position estimates
@@ -989,8 +1011,20 @@ int main()
 
   //turnPID(45,20);
   //turnPID(-180,100);
-  forwardPID(12, 50);
+  //forwardPID(12, 50);
   //forwardPID(-15, 35);
+
+  /*setTarget(25, 0);
+  moveToTarget(35, 5);
+  
+  setTarget(25, 25);
+  moveToTarget(20, 25);*/
+/*
+  setTarget(0, 25);
+  moveToTarget(20, 25);
+
+  setTarget(0, 0);
+  moveToTarget(20, 25);*/
 
 /*
 setTarget(-25,0);
@@ -1033,8 +1067,8 @@ moveToTarget(24,20);
     {
       targetX = screenToGlobalX(Brain.Screen.xPosition());
       targetY = screenToGlobalY(Brain.Screen.yPosition());
-      //turnTo(targetX, targetY, 20);
-      moveToTarget(25, 20);
+      //turnToTarget(30);
+      passTarget(25, 25);
     }
     
     // control the robot more precisely than with joysticks
@@ -1059,10 +1093,10 @@ moveToTarget(24,20);
     else
     {
       // Control with joysticks if buttons are not used. Joystick value defaults to 0 when not touched so the speed will be 0.
-      //leftDrive(controllerPrim.Axis3.value());
-      //rightDrive(controllerPrim.Axis2.value());
+
       stopBase();
     }
+
 
     task::sleep(5);
   }
