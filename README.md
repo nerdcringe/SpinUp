@@ -8,7 +8,7 @@ The position of the robot relative to its starting position.
  
 
 #### double *targetX*, *targetY*
-The current desired position of the robot that odometry movement functions will reference when invoked. 
+The current desired position of the robot that odometry movement functions will reference.
  
 
 #### double *totalDistance*
@@ -109,7 +109,6 @@ Each term is multiplied by a corresponding tuning constant that affects how much
 - Found by multiplying the error by Kp
 
 ##### Tuning
- - Set to a moderate value (around 5.0)
  - Increase if not fully reaching target.
  - Decrease if overshooting slightly.
 
@@ -132,7 +131,7 @@ Each term is multiplied by a corresponding tuning constant that affects how much
 - Increase Kd if the robot overshoots or oscillates around the target.
 - Decrease Kd if the robot stops before the target.
 
-Generally, P and I increase speed and D decreases speed. P is the majority of the speed, especially at the start of the movement. Then, towards the middle, it should slow down until I kicks in and speeds it up slightly. At the end, D reduces overshoot and oscillations around the target value. The nuances of each variable are kind of intuitional.
+Generally, P and I increase speed and D decreases speed. P is the majority of the speed, especially at the start of the movement. Then, towards the middle, it should slow down until I kicks in and speeds it up slightly. At the end, D reduces overshoot and oscillations around the target value. It takes practice to intuitively understand the nuances of each variable.
 
 
 ##### PID Pseudocode
@@ -148,7 +147,7 @@ while (running)
   
   derivative = error – last_error; // Find the rate of change of the error
   
-  speed = Kp*error + Ki*integral + Kd*derivative;
+  speed = Kp*error + Ki*integral + Kd*derivative; // Multiply each variable by its tuning constant and sum them up
   last_error = error;
 }
 ```
@@ -201,7 +200,8 @@ int startIntake10()
   {
     // Wait inside the while loop until 10 inches is passed
     task::sleep(10);
-  } 
+  }
+  
   setIntake(100); // This can be anything 
 }
  ```
@@ -232,7 +232,7 @@ void togglePneumatic()
   }
   else
   { 
-  pneumatic.set(1) 
+    pneumatic.set(1) 
   } 
 } 
 ```
