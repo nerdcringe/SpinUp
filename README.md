@@ -1,5 +1,10 @@
 # 1575Y Vex Team Code
 
+## Overview
+
+This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Having the right position and orientation is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates.
+
+
 
 ## Important Variables 
 
@@ -14,13 +19,13 @@ The current desired position of the robot that odometry movement functions will 
 #### double *totalDistance*
 The total distance accumulated since the start of the current movement. 
 
- 
+
  
 ## Movement Functions 
 
 #### forwardPID 
 
-- Parameters: double distance (inches), double maxSpeed (percent),  
+- Parameters: double *distance* (inches), double *maxSpeed* (percent) 
 
 - Description: Move forward/backwards for a certain distance using PID algorithm. Limit the output speed of the PID to a certain maximum speed. 
 
@@ -55,7 +60,7 @@ The total distance accumulated since the start of the current movement.
 
 #### turnToTarget 
 
-- Parameters: double turnSpeed (percent) 
+- Parameters: double *turnSpeed* (percent) 
 
 - Description: Turn to face the target position on the field. 
 
@@ -93,14 +98,31 @@ The total distance accumulated since the start of the current movement.
 - Description: Turn to the target position while moving backward to pass by the target. The robot will not slow down after it passes the target, so use this for intermediate movements. 
 
  
+## Sensor Functions
 
+#### double getDegrees 
+- Description: Return the current angle of the inertial sensor in degrees.
+
+
+#### double getRadians 
+- Description: Return the current angle of the inertial sensor in radians.
+
+
+#### double angleWrap 
+- Parameters: double *angle* (degrees)
+- Description: Return the angle but within a -180 to 180 degree range of the robot. This makes it so the robot doesn't turn over 180 degrees since it can turn faster by turning the othe direction.
+- Used to calculate the nearest angle to a point for odometryy movement
  
 
 ## PID
 
-PID is a way to move some distance or turn to some angle.
-The distance or angle from a target is called error. To reduce error precisely, PID adds up three variables to obtain a final speed value.
-Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd).
+PID is an algorithm to get motors to move some distance or turn to some angle accurately. The default movement functions VexCode provides aren't completely accurate all the time. PID allows you to customize the way a motor moves to make it more accurate for its use case. PID can be used for base movement, lifts, maintaining a constant flywheel speed, and more. We have used PID in the past to move straight and turn, but we are adding the ability to move and turn simultaneously in a curved path using odometry.
+
+In PID, the distance or angle from a target is called *error*. Error is calculated with the formula: desired value - current value.
+Distance error is found with the integrated motor encoders and angle error is found with the gyo/inertial sensor.
+
+To reduce error precisely, PID adds up three variables to obtain a final speed value.
+Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and after a few milliseconds, the cycle repeats.
 
 
 ### P: Proportional
