@@ -202,6 +202,7 @@ To use a comprehensive and reliable odometry system, certain math conventions mu
 
 After I made this little GUI to display the field, I worked on turning towards a point. The atan2() function, inverse tangent, returns the angle you have to turn to to face a point. Then the robot makes sure the angle is within -180 to 180 degrees of the robot's current angle. The angleWrap functions makes it so the robot doesn't turn over 180 degrees because it can turn less in the other direction to end up at the same angle.
 
+
 After that, the position tracking itself had to be worked on. The code gets the change in position and the current angle at every update. Then, those polar coordinates (defined by distance and angle from origin) are converted to x, y coordinates and added to the global position. Since we can't move sideways, the robot really only needs two parallel tracking wheels instead of an additional sideways one.
 
 A document by [The Pilons] (http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) contributed additional ideas for more accurate tracking. It shows how to get the angle with encoders and how to account for tracking wheels being offcenter. We already use the inertial sensor for the angle, but I tried accounting for the tracking wheels like it said. They also approximate the path of the robot with arcs. I was only approximating the path with line segments (each with a single angle and distance), which may have contributed to innacurracies.
