@@ -5,8 +5,9 @@
 This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Having the right position and orientation is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates.
 
 
+## The Code
 
-## Important Variables 
+### Important Variables 
 
 #### double *globalX*, *globalY*
 The position of the robot relative to its starting position. 
@@ -21,7 +22,7 @@ The total distance accumulated since the start of the current movement.
 
 
  
-## Movement Functions 
+### Movement Functions 
 
 #### forwardPID 
 
@@ -48,7 +49,7 @@ The total distance accumulated since the start of the current movement.
  
  
 
-## Odometry Functions
+### Odometry Functions
 
 #### setTarget 
 
@@ -66,7 +67,6 @@ The total distance accumulated since the start of the current movement.
 
  
  
-
 #### moveToTarget 
 
 - Parameters: double *forwardSpeed* (percent), double *turnSpeed* (percent) 
@@ -98,7 +98,7 @@ The total distance accumulated since the start of the current movement.
 - Description: Turn to the target position while moving backward to pass by the target. The robot will not slow down after it passes the target, so use this for intermediate movements. 
 
  
-## Sensor Functions
+### Sensor Functions
 
 #### double getDegrees 
 - Description: Return the current angle of the inertial sensor in degrees.
@@ -113,8 +113,10 @@ The total distance accumulated since the start of the current movement.
 - Description: Return the angle but within a -180 to 180 degree range of the robot. This makes it so the robot doesn't turn over 180 degrees since it can turn faster by turning the othe direction.
 - Used to calculate the nearest angle to a point for odometryy movement
  
+ 
+## Guide
 
-## PID
+### PID Controllers
 
 PID is an algorithm to get motors to move some distance or turn to some angle accurately. The default movement functions VexCode provides aren't completely accurate all the time. PID allows you to customize the way a motor moves to make it more accurate for its use case. PID can be used for base movement, lifts, maintaining a constant flywheel speed, and more. We have used PID in the past to move straight and turn, but we are adding the ability to move and turn simultaneously in a curved path using odometry.
 
@@ -125,7 +127,7 @@ To reduce error precisely, PID adds up three variables to obtain a final speed v
 Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and after a few milliseconds, the cycle repeats.
 
 
-### P: Proportional
+#### P: Proportional
 - Speed is proportional to error
 - Fast when error is high and slow when error is low
 - Found by multiplying the error by Kp
@@ -135,7 +137,7 @@ Each term is multiplied by a corresponding tuning constant that affects how much
  - Decrease if overshooting slightly.
 
 
-### I: Integral
+#### I: Integral
 - Speed is the accumulated error
 - Accumulates if far away from the target for a while
 - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
@@ -144,7 +146,7 @@ Each term is multiplied by a corresponding tuning constant that affects how much
 - Increase Ki if the robot stops before the target.
 - Decrease Ki if the target is overshot and it takes a while to correct itself
 
-### D: Derivative
+#### D: Derivative
 - Speed is rate of change of the error
 - Smooths out rapid changes in error when moving quickly due to P and I
 - Dampens any unwanted oscillations and overshoot
@@ -190,7 +192,7 @@ float Kd = 0.5;
 
 
 
-## Odometry
+### Odometry
 
 Traditionally, VEX robots are controlled with commands to move relative to its current position. *Move forward, backward, turn 90 degrees, etc*. However, any obstacle in the robot's path could alter its direction and the code wouldn't be able to tell the difference. Odometry lets the code track the robot's x and y coordinates, which allows the path to be corrected. It is also more accurate to move in arc-shaped paths when odometry data is collected.
 
@@ -222,7 +224,7 @@ setTarget(0, 0); // Set the target position back to original position (0, 0)
 moveToTargetRev(25, 5); // Move to the target in reverse at 25% backward speed and 5% turning speed. 
 ```
 
-## Multitasking in autonomous
+### Multitasking In Autonomous
 Multitasking involves invoking a function while another function is running. To call a function after moving some distance while moving, create the following function 
 
 ```
@@ -251,7 +253,7 @@ forwardPID(20, 25); // Move forward 20 inches (intake will start after 10 inches
  
 
 
-## Adding pneumatics to driver control
+### Adding Pneumatics to Driver Control
 
 ```
 // Create function for toggling pneumatic on/off 
