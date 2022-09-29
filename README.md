@@ -1,8 +1,8 @@
-# 1575Y Vex Team Code
+# 1575Y Vex Code - Spin Up 2022-23
 
 ## Overview
 
-This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Having the right position and orientation is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates.
+This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Having the right position and orientation is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates. Odometry also allows flexibility and accuracy when moving along complex curved paths.
 
 
 ## The Code
@@ -131,29 +131,26 @@ Each term is multiplied by a corresponding tuning constant that affects how much
 - Speed is proportional to error
 - Fast when error is high and slow when error is low
 - Found by multiplying the error by Kp
-
-##### Tuning
- - Increase if not fully reaching target.
- - Decrease if overshooting slightly.
+- Tuning:
+  - Increase if not fully reaching target.
+  - Decrease if overshooting slightly.
 
 
 #### I: Integral
 - Speed is the accumulated error
 - Accumulates if far away from the target for a while
 - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
-
-##### Tuning
-- Increase Ki if the robot stops before the target.
-- Decrease Ki if the target is overshot and it takes a while to correct itself
+- Tuning:
+  - Increase Ki if the robot stops before the target.
+  - Decrease Ki if the target is overshot and it takes a while to correct itself
 
 #### D: Derivative
 - Speed is rate of change of the error
 - Smooths out rapid changes in error when moving quickly due to P and I
 - Dampens any unwanted oscillations and overshoot
-
-##### Tuning
-- Increase Kd if the robot overshoots or oscillates around the target.
-- Decrease Kd if the robot stops before the target.
+- Tuning:
+  - Increase Kd if the robot overshoots or oscillates around the target.
+  - Decrease Kd if the robot stops before the target.
 
 Generally, P and I increase speed and D decreases speed. P is the majority of the speed, especially at the start of the movement. Then, towards the middle, it should slow down until I kicks in and speeds it up slightly. At the end, D reduces overshoot and oscillations around the target value. It takes practice to intuitively understand the nuances of each variable.
 
