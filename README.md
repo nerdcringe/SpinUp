@@ -1,13 +1,11 @@
 # 1575Y Vex Code - Spin Up 2022-23
 
-## Overview
-
 This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Precise positioning is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of x-y coordinates. Odometry also makes curved paths more accurate.
 
 
-## The Code
+# The Code
 
-### Important Variables 
+## Important Variables 
 
 #### double *globalX*, *globalY*
 The position of the robot relative to its starting position. 
@@ -22,7 +20,7 @@ The total distance accumulated since the start of the current movement.
 
 
  
-### Movement Functions 
+## Movement Functions 
 
 #### forwardPID 
 
@@ -49,7 +47,7 @@ The total distance accumulated since the start of the current movement.
  
  
 
-### Odometry Functions
+## Odometry Functions
 
 #### setTarget 
 
@@ -98,7 +96,7 @@ The total distance accumulated since the start of the current movement.
 - Description: Turn to the target position while moving backward to pass by the target. The robot will not slow down after it passes the target, so use this for intermediate movements. 
 
  
-### Sensor Functions
+## Sensor Functions
 
 #### double getDegrees 
 - Description: Return the current angle of the inertial sensor in degrees.
@@ -107,27 +105,20 @@ The total distance accumulated since the start of the current movement.
 #### double getRadians 
 - Description: Return the current angle of the inertial sensor in radians.
 
-
-#### double angleWrap 
-- Parameters: double *angle* (degrees)
-- Description: Return the angle but within a -180 to 180 degree range of the robot. This makes it so the robot doesn't turn over 180 degrees since it can turn faster by turning the othe direction.
-- Used to calculate the nearest angle to a point for odometryy movement
  
- 
-## Guide
+# Guide
 
-### PID Controllers
+## PID Controllers
 
-PID is an algorithm we use to move motors precisely. The default motor functions VexCode provides aren't very precise. PID allows you to customize the way a motor moves to make it more accurate for its use case. We use PID to move straight and turn. It can also be used for moving lifts, maintaining a constant flywheel speed, and more.
+A PID controller is an algorithm we use to move motors precisely. The default motor functions VexCode provides aren't very precise. PID allows you to customize the way a motor moves to make it more accurate for its use case. We use PID to move straight and turn. It can also be used for moving lifts, maintaining a constant flywheel speed, and more.
 
-In PID, the distance or angle from a target is called *error*. Error is calculated with the formula: desired value - current value.
-Distance is found with the motor's integrated encoders and angle is found with the gyo/inertial sensor.
+In PID, the distance or angle from a target is called *error*. The goal of PID is to reduce error as precisely as possible. Error is calculated with the formula: desired value - current value. Distance is found with the motor's integrated encoders and angle is found with the gyro/inertial sensor.
 
 To reduce error precisely, PID adds up three variables to obtain a final speed value.
 Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and the cycle rapidly repeats.
 
 
-#### P: Proportional
+### P: Proportional
 - Speed is proportional to error
 - Fast when error is high and slow when error is low
 - Found by multiplying the error by Kp
@@ -135,7 +126,7 @@ Each term is multiplied by a corresponding tuning constant that affects how much
   - Increase if not fully reaching target.
   - Decrease if overshooting slightly.
 
-#### I: Integral
+### I: Integral
 - Speed is the accumulated error
 - Accumulates if far away from the target for a while
 - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
@@ -143,7 +134,7 @@ Each term is multiplied by a corresponding tuning constant that affects how much
   - Increase Ki if the robot stops before the target.
   - Decrease Ki if the target is overshot and it takes a while to correct itself
 
-#### D: Derivative
+### D: Derivative
 - Speed is rate of change of the error
 - Smooths out rapid changes in error when moving quickly due to P and I
 - Dampens any unwanted oscillations and overshoot
@@ -154,7 +145,7 @@ Each term is multiplied by a corresponding tuning constant that affects how much
 Generally, P and I increase speed and D decreases speed. P is the majority of the speed, especially at the start of the movement. Then, towards the middle, it should slow down until I kicks in and speeds it up slightly. At the end, D reduces overshoot and oscillations around the target value. It takes practice to intuitively understand the nuances of each variable.
 
 
-##### PID Pseudocode
+### PID Pseudocode
 ```
 last_error = 0;
 integral = 0;
@@ -188,29 +179,25 @@ float Kd = 0.5;
 
 
 
-### Odometry
+## Odometry
 
 Traditionally, VEX robots are controlled with commands to move relative to its current position. *Move forward, backward, turn 90 degrees, etc*. However, any obstacle in the robot's path could alter its direction and the code wouldn't be able to tell the difference. Odometry lets the code track the robot's x and y coordinates, which allows the path to be corrected. It is also more accurate to move in arc-shaped paths when odometry data is collected.
 
-To use a comprehensive and reliable odometry system, certain math conventions must be followed:
+### Conventions
+Certain math conventions must be followed when developing or using odometry. I used conventions that are commonly accepted in math:
 - +x is right, -x is left, +y is up, -y is down
 - The initial position of the robot is (0, 0)
 - 0 degrees is on the positive x-axis
 - Positive angles are counter-clockwise from 0 degrees
 
+### Development
+I started by making this little GUI to display the robot's position and angle. I then worked on turning towards a point. Inverse tangent gives the angle you have to turn to in order to face a point. Then the robot finds which way to rotate to get to that angle. The angleWrap() function makes it so the robot doesn't turn over 180 degrees because it can turn less in the other direction to end up at the same angle.
 
-After I made this little GUI to display the field, I worked on turning towards a point. The atan2() function, inverse tangent, returns the angle you have to turn to to face a point. Then the robot makes sure the angle is within -180 to 180 degrees of the robot's current angle. The angleWrap functions makes it so the robot doesn't turn over 180 degrees because it can turn less in the other direction to end up at the same angle.
+Afterwards, the position tracking itself had to be worked on. The code gets the change in position and the current angle at every update. Then, those polar coordinates (defined by distance and angle from origin) are converted to x, y coordinates and added to the global position. Since we can't move sideways, the robot really only needs two parallel tracking wheels instead of an additional sideways one.
 
+A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) helped with more accurate tracking. It shows how to get the angle with encoders and how to account for tracking wheels being offcenter. We already use the inertial sensor for the angle, which is simpler and didn't make much of a difference. I tried accounting for the tracking wheels like it said but it didn't seem to make too much of a difference. When you go to a point and then return back to (0, 0), the robot doesn't always go to its original position. Although, its fine if its always the same wrong position.
 
-After that, the position tracking itself had to be worked on. The code gets the change in position and the current angle at every update. Then, those polar coordinates (defined by distance and angle from origin) are converted to x, y coordinates and added to the global position. Since we can't move sideways, the robot really only needs two parallel tracking wheels instead of an additional sideways one.
-
-A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) contributed additional ideas for more accurate tracking. It shows how to get the angle with encoders and how to account for tracking wheels being offcenter. We already use the inertial sensor for the angle, but I tried accounting for the tracking wheels like it said. They also approximate the path of the robot with arcs. I was only approximating the path with line segments (each with a single angle and distance), which may have contributed to innacurracies.
-
-I attempted to implement The Pilons' changes but it didn't seem to make too much of a difference. When you go to a point and then return back to (0, 0), the robot doesn't always go to its original position. As long as it ends up in the same wrong position, it can be adjusted.
-
-
-
-
+### How to use
 Moving to a point first involves a command to set the target position. Afterwards, you may move to or turn to that target point.
  
 ```
@@ -221,7 +208,7 @@ setTarget(0, 0); // Set the target position back to original position (0, 0)
 moveToTargetRev(25, 5); // Move to the target in reverse at 25% backward speed and 5% turning speed. 
 ```
 
-### Multitasking In Autonomous
+## Multitasking In Autonomous
 Multitasking involves invoking a function while another function is running. To call a function after moving some distance while moving, create the following function 
 
 ```
@@ -250,8 +237,9 @@ forwardPID(20, 25); // Move forward 20 inches (intake will start after 10 inches
  
 
 
-### Adding Pneumatics to Driver Control
+## Pneumatics
 
+### Driver control
 ```
 // Create function for toggling pneumatic on/off 
 
