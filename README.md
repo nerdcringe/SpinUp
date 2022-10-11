@@ -2,7 +2,7 @@
 
 ## Overview
 
-This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Having the right position and orientation is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates. Odometry also allows flexibility and accuracy when moving along complex curved paths.
+This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Precise positioning is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates. Odometry also makes curved paths more accurate.
 
 
 ## The Code
@@ -118,13 +118,13 @@ The total distance accumulated since the start of the current movement.
 
 ### PID Controllers
 
-PID is an algorithm to get motors to move some distance or turn to some angle accurately. The default movement functions VexCode provides aren't completely accurate all the time. PID allows you to customize the way a motor moves to make it more accurate for its use case. PID can be used for base movement, lifts, maintaining a constant flywheel speed, and more. We have used PID in the past to move straight and turn, but we are adding the ability to move and turn simultaneously in a curved path using odometry.
+PID is an algorithm we use to move motors precisely. The default motor functions VexCode provides aren't very precise. PID allows you to customize the way a motor moves to make it more accurate for its use case. We use PID to move straight and turn. It can also be used for moving lifts, maintaining a constant flywheel speed, and more.
 
 In PID, the distance or angle from a target is called *error*. Error is calculated with the formula: desired value - current value.
-Distance error is found with the integrated motor encoders and angle error is found with the gyo/inertial sensor.
+Distance is found with the motor's integrated encoders and angle is found with the gyo/inertial sensor.
 
 To reduce error precisely, PID adds up three variables to obtain a final speed value.
-Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and after a few milliseconds, the cycle repeats.
+Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and the cycle rapidly repeats.
 
 
 #### P: Proportional
@@ -134,7 +134,6 @@ Each term is multiplied by a corresponding tuning constant that affects how much
 - Tuning:
   - Increase if not fully reaching target.
   - Decrease if overshooting slightly.
-
 
 #### I: Integral
 - Speed is the accumulated error
