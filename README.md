@@ -2,7 +2,7 @@
 
 ## Overview
 
-This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Precise positioning is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of (x, y) coordinates. Odometry also makes curved paths more accurate.
+This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Precise positioning is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of x-y coordinates. Odometry also makes curved paths more accurate.
 
 
 ## The Code
