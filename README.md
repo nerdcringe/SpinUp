@@ -194,7 +194,8 @@ Certain math conventions must be followed when developing or using odometry. I u
 
 
 ### Development
-I started by making this little GUI to graphically display the robot's position and angle. The position, rotation, and encoder values are printed.
+
+We used the base of the Change Up bot as a mini bot to test odometry. It has unpowered tracking wheels hooked up to encoders. Then I started the code by making a display for the robot's position and angle. The position, rotation, and encoder values are printed on the side.
 
 ![image](https://user-images.githubusercontent.com/54510965/195656350-cfdcb9fe-244f-4b95-9398-cb46614eae9f.png)
 
@@ -204,7 +205,7 @@ In this pic the robot chooses to turn on the green shorter arc and not the red l
 
 <img src="https://user-images.githubusercontent.com/54510965/195656001-742022d7-2d7f-4dbe-befc-8a96bdf91f2d.png" width="450">
 
-Afterwards, the position tracking itself had to be worked on. The code gets the change in tracking wheel position and the current angle at every update. Then, those polar coordinates (defined by distance and angle instead of x and y) are converted to x, y coordinates and added to the global position.
+Afterwards, the position tracking itself had to be worked on. The code gets the change in tracking wheel position and the current angle at every update. Then the distance and angle (called polar coordinates) are converted to x-y coordinates and added to the global position.
 
 Here is a diagram of the odometry system.
 
@@ -213,16 +214,13 @@ Here is a diagram of the odometry system.
 The robot is moving in the direction of A. Theta is the angle of the inertial/gyro sensor. Ax and Ay are the x and y components of the movement. They are found with trig using the length of A and theta. Each update, Ax and Ay are added to globalX and globalY.
 
 ### Accuracy
-A good odometry system should be able to move to the same place when given the same coordinates. However, when going back to (0, 0), the robot doesn't return exactly to its original position. I ends up a few inches away. The longer the robot moves, the more innacurrate the position becomes. However, as long as the robot returns to the same wrong position each time, it is acceptable to some degree. We still needed solutions to minimize innacuracies.
+A good odometry system should be able to move to the same place when given the same coordinates. However, in testing, the robot doesn't return exactly to its original position. It ends up a few inches away. However, as long as the robot returns to the same wrong position each time, it may be acceptable. For now, I have to accept that there's some arbitraity to guessing the positions.
 
-A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) helped with more accurate tracking. It showed how to fix two the problems:
+The tracking wheels are important for accuracy and precision. The tracking wheels should be tensioned to the ground with rubber bands so if the robot jumps or skips the tracking wheels are still touching the ground. The mini bot doesn't have this but we'll do it for the real bot. Since the robot can't move sideways, it only needs two forwards tracking wheels without an additional sideways one. There is some added accuracy for having the sideways one but it might not be worth it for the space.
+
+A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) helped with more accurate tracking. The document can get pretty complicated but most of it is dedicated to making slight adjustments. It addressed these problems:
  - Getting the robot's angle with encoders. We already use the inertial sensor for the angle but if a team doesn't have one, then they could use encoders instead.
- - The tracking wheels are offcentered, so they don't track the exact center of the robot. It uses a separate calculation to try to adjust for this.
- 
-I tried accounting for the tracking wheels like The Pilons said and it helped the accuracy a bit. 
-
-Since we can't move sideways, the robot technically only needs two parallel tracking wheels instead of an additional sideways one. There is some slight added accuracy for having the sideways one but it might not be worth it for the space.
-
+ - The tracking wheels are offcentered, so they don't track the exact center of the robot. The code can shift the position over by some amount based on the arc of the movement. Accounting for this helped a bit but it's still not perfect.
 
 
 ### How to use
