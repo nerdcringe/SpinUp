@@ -195,7 +195,9 @@ Certain math conventions must be followed when developing or using odometry. I u
 
 ### Development
 
-We used the base of the Change Up bot as a mini bot to test odometry. It has unpowered tracking wheels hooked up to encoders. Then I started the code by making a display for the robot's position and angle. The position, rotation, and encoder values are printed on the side.
+We used the base of the Change Up bot as a mini bot to test odometry. It has unpowered tracking wheels hooked up to encoders.
+
+Then I started the code by making a display for the robot's position and angle. The position, rotation, and encoder values are printed on the side.
 
 ![image](https://user-images.githubusercontent.com/54510965/195656350-cfdcb9fe-244f-4b95-9398-cb46614eae9f.png)
 
