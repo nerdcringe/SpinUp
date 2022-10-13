@@ -190,12 +190,40 @@ Certain math conventions must be followed when developing or using odometry. I u
 - 0 degrees is on the positive x-axis
 - Positive angles are counter-clockwise from 0 degrees
 
+![image](https://user-images.githubusercontent.com/54510965/195655959-7456d2ae-fc32-4738-9304-768573737dc3.png)
+
+
 ### Development
-I started by making this little GUI to display the robot's position and angle. I then worked on turning towards a point. Inverse tangent gives the angle you have to turn to in order to face a point. Then the robot finds which way to rotate to get to that angle. The angleWrap() function makes it so the robot doesn't turn over 180 degrees because it can turn less in the other direction to end up at the same angle.
+I started by making this little GUI to graphically display the robot's position and angle. The position, rotation, and encoder values are printed.
 
-Afterwards, the position tracking itself had to be worked on. The code gets the change in position and the current angle at every update. Then, those polar coordinates (defined by distance and angle from origin) are converted to x, y coordinates and added to the global position. Since we can't move sideways, the robot really only needs two parallel tracking wheels instead of an additional sideways one.
+![image](https://user-images.githubusercontent.com/54510965/195656350-cfdcb9fe-244f-4b95-9398-cb46614eae9f.png)
 
-A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) helped with more accurate tracking. It shows how to get the angle with encoders and how to account for tracking wheels being offcenter. We already use the inertial sensor for the angle, which is simpler and didn't make much of a difference. I tried accounting for the tracking wheels like it said but it didn't seem to make too much of a difference. When you go to a point and then return back to (0, 0), the robot doesn't always go to its original position. Although, its fine if its always the same wrong position.
+I then worked on turning towards a point. Inverse tangent gives the angle you have to turn to in order to face a point when given a relative x and y position. Then the robot finds which way to rotate to get to that angle. The angleWrap() function makes it so the robot doesn't turn over 180 degrees because it can turn less in the other direction to end up at the same angle.
+
+In this pic the robot chooses to turn on the green shorter arc and not the red longer arc.
+
+<img src="https://user-images.githubusercontent.com/54510965/195656001-742022d7-2d7f-4dbe-befc-8a96bdf91f2d.png" width="450">
+
+Afterwards, the position tracking itself had to be worked on. The code gets the change in tracking wheel position and the current angle at every update. Then, those polar coordinates (defined by distance and angle instead of x and y) are converted to x, y coordinates and added to the global position.
+
+Here is a diagram of the odometry system.
+
+<img src="https://user-images.githubusercontent.com/54510965/195656704-e79e0b20-702d-48ab-84bf-3f2db0dbb829.png" width="250">
+
+The robot is moving in the direction of A. Theta is the angle of the inertial/gyro sensor. Ax and Ay are the x and y components of the movement. They are found with trig using the length of A and theta. Each update, Ax and Ay are added to globalX and globalY.
+
+### Accuracy
+A good odometry system should be able to move to the same place when given the same coordinates. However, when going back to (0, 0), the robot doesn't return exactly to its original position. I ends up a few inches away. The longer the robot moves, the more innacurrate the position becomes. However, as long as the robot returns to the same wrong position each time, it is acceptable to some degree. We still needed solutions to minimize innacuracies.
+
+A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf) helped with more accurate tracking. It showed how to fix two the problems:
+ - Getting the robot's angle with encoders. We already use the inertial sensor for the angle but if a team doesn't have one, then they could use encoders instead.
+ - The tracking wheels are offcentered, so they don't track the exact center of the robot. It uses a separate calculation to try to adjust for this.
+ 
+I tried accounting for the tracking wheels like The Pilons said and it helped the accuracy a bit. 
+
+Since we can't move sideways, the robot technically only needs two parallel tracking wheels instead of an additional sideways one. There is some slight added accuracy for having the sideways one but it might not be worth it for the space.
+
+
 
 ### How to use
 Moving to a point first involves a command to set the target position. Afterwards, you may move to or turn to that target point.
