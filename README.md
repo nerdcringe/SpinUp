@@ -16,7 +16,7 @@ The current desired position of the robot that odometry movement functions will 
  
 
 #### double *totalDistance*
-The total distance accumulated since the start of the current movement. 
+The total distance accumulated since the start of the current movement. It goes up when the bot moves forward and down when it moves in reverse. It uses the tracking wheel encoder's distance instead of motor encoders for precision.
 
 
  
