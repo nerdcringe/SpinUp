@@ -11,103 +11,14 @@
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
+#include "functions.h"
+#include "odom.h"
 
 using namespace vex;
 
 // A global instance of competition
 competition Competition;
 
-// define your global instances of motors and other devices here
-
-// DEVICES ///////////////////////////////////
-
-
-  // motors //
-
-  motor L1BASE(PORT15, true); // front
-  motor L2BASE(PORT17, true); // back top
-  motor L3BASE(PORT14); // back mid
-  motor L4BASE(PORT11, true); // back bottom
-
-  motor R1BASE(PORT18); // front
-  motor R2BASE(PORT13); 
-  motor R3BASE(PORT19, true);
-  motor R4BASE(PORT9);
-
-
-  // Sensors & more //
-
-  inertial INERTIAL(PORT14);
-
-  triport Triport(PORT22); // Get reference for three-wire ports on brain
-
-  digital_out PWT(Triport.A);
-
-
-  triport TriportExt(PORT9); // Get reference for three wire extender
-  encoder encoderL(TriportExt.A); // left tracking wheel
-  encoder encoderR(TriportExt.C); // right tracking wheel
-  encoder encoderS(TriportExt.E); // sideways tracking wheel. Testing to see if we need this to deal with drift
-
-  controller controllerPrim(controllerType::primary);
-
-
-// MATH FUNCTIONS /////////////////////////////////////////////
-
-
-  // OLD FUNCTIONS FOR MOTOR ENCODERS
-  /*
-  // Convert distance to move to ticks to rotate base motors
-  double inchesToTicks(double inches)
-  {
-    return inches * (360 / WHEEL_CIRCUMFERENCE);
-  }
-
-  double ticksToInches(double ticks)
-  {
-    return ticks * (WHEEL_CIRCUMFERENCE / 360);
-  }*/
-
-
-
-// STANDARD MOVEMENT ////////////////////////////
-
-  // Set the speeds of different sides of the base
-  void leftDrive(double power)
-  {
-    // check which motor setup is being used based on pto
-    L1BASE.spin(fwd, power, pct);
-    L2BASE.spin(fwd, power, pct);
-    L3BASE.spin(fwd, power, pct);
-    L4BASE.spin(fwd, power, pct);
-  }
-
-  void rightDrive(double power)
-  {
-    R1BASE.spin(fwd, power, pct);
-    R2BASE.spin(fwd, power, pct);
-    R3BASE.spin(fwd, power, pct);
-    R4BASE.spin(fwd, power, pct);
-  }
-
-  void drive(double power)
-  {
-    leftDrive(power);
-    rightDrive(power);
-  }
-
-  void stopBase()
-  {
-    L1BASE.stop(coast);
-    L2BASE.stop(coast);
-    L3BASE.stop(coast);
-    L4BASE.stop(coast);
-
-    R1BASE.stop(coast);
-    R2BASE.stop(coast);
-    R3BASE.stop(coast);
-    R4BASE.stop(coast);
-  }
 
 void pneumaticOn(){
   PWT.set(1);
@@ -128,6 +39,9 @@ void toggleopneumatic(){
   }
 }
 
+
+
+
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 /*                                                                           */
@@ -141,54 +55,122 @@ void toggleopneumatic(){
 void pre_auton(void) {
   // Initializing Robot Configuration. DO NOT REMOVE!
   vexcodeInit();
+  
+  hello1 = 1;
+  
+  // fill screen with green bg
+  Brain.Screen.setFillColor(color(10, 80, 30));
+  Brain.Screen.setPenWidth(0);
+  Brain.Screen.drawRectangle(0, 0, 480, 272);
+
+
+  INERTIAL.calibrate();
+  // Wait until the inertial sensor finishes calibrating
+  while (INERTIAL.isCalibrating())
+  {
+    Brain.Screen.setPenColor(red);
+    Brain.Screen.printAt(210, 50, "Rot: CALIBRATING");
+  }
+  Brain.Screen.setPenColor(white);
+  Brain.Screen.printAt(210, 50, "Done calibrating");
+
 
   // All activities that occur before the competition starts
   // Example: clearing encoders, setting servo positions, ...
 }
 
-/*---------------------------------------------------------------------------*/
-/*                                                                           */
-/*                              Autonomous Task                              */
-/*                                                                           */
-/*  This task is used to control your robot during the autonomous phase of   */
-/*  a VEX Competition.                                                       */
-/*                                                                           */
-/*  You must modify the code to add your own robot specific commands here.   */
-/*---------------------------------------------------------------------------*/
 
-void autonomous(void) {
-  // ..........................................................................
-  // Insert autonomous user code here.
-  // ..........................................................................
+// AUTON ///////////////////////////////////////////////////////////////////
+
+// full wp
+void leftFull(void)
+{
+  
 }
 
-/*---------------------------------------------------------------------------*/
-/*                                                                           */
-/*                              User Control Task                            */
-/*                                                                           */
-/*  This task is used to control your robot during the user control phase of */
-/*  a VEX Competition.                                                       */
-/*                                                                           */
-/*  You must modify the code to add your own robot specific commands here.   */
-/*---------------------------------------------------------------------------*/
+void rightFull(void)
+{
+  
+}
 
-void usercontrol(void) {
+
+// half wp
+void leftHalf(void)
+{
+  
+}
+
+void rightHalf(void)
+{
+  
+}
+
+void skills()
+{
+
+}
+
+
+
+
+// DRIVER ///////////////////////////////////////////////////////////////////
+void usercontrol(void)
+{
+
+  // set up controller callbacks
+  controllerPrim.ButtonA.pressed(toggleopneumatic);
+  
   // User control code here, inside the loop
-  while (1) {
-    // This is the main execution loop for the user control program.
-    // Each time through the loop your program should update motor + servo
-    // values based on feedback from the joysticks.
+  while (1 == 1) {
 
-    // ........................................................................
-    // Insert user code here. This is where you use the joystick values to
-    // update your motors, etc.
-    // ........................................................................
+    L1BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
+    L3BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
+    L4BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
+    //L4BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
+
+
+    R1BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
+    R3BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
+    R4BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
+    //R4BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
+
+
+
+    if (controllerPrim.ButtonR1.pressing())
+    {
+      R2BASE.spin(fwd, 100, pct);
+    }
+    else if (controllerPrim.ButtonR2.pressing())
+    {
+      R2BASE.spin(reverse, 100, pct);
+    }
+    else
+    {
+      R2BASE.stop(coast);
+    }
+    
+    if (controllerPrim.ButtonR1.pressing())
+    {
+      L2BASE.spin(fwd, 100, pct);
+    }
+    else if (controllerPrim.ButtonR2.pressing())
+    {
+      L2BASE.spin(reverse, 100, pct);
+    }
+    else
+    {
+      L2BASE.stop(coast);
+    }
+
+
 
     // There's multiple control schemes
 
-    leftDrive(controllerPrim.Axis3.value());
+    /*leftDrive(controllerPrim.Axis3.value());
     rightDrive(controllerPrim.Axis2.value());
+    */
 
+    
 
 /*
     if (controllerPrim.ButtonR1.pressing())
@@ -230,21 +212,48 @@ void usercontrol(void) {
 }
 
 
+
+
+
+void values()
+{
+
+  Brain.Screen.setFillColor(color(10, 80, 30)); // Set background to green in rgb
+  Brain.Screen.setPenColor(white); // Set text color to white
+
+  // Display debug values such as position, rotation, encoder values, total distancel, etc.
+  Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
+  Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getRotationDeg());
+  Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f    ", getLeftReading(), getRightReading());
+  Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
+
+  //Brain.Screen.printAt(210, 130, "isStopped: %d   ", isStopped());
+
+  /* Brain.Screen.printAt(210, 110, "lir: %.1f  aaom: %.1f", lastInertialRadians * toDegrees, absoluteAngleOfMovement * toDegrees);
+  Brain.Screen.printAt(210, 130, "dth: %.1f  dd:%.1f", deltaTheta * toDegrees, deltaDistance);
+  Brain.Screen.printAt(210, 150, "dl:%.1f  dr:%.1f", deltaLeft, deltaRight);
+  Brain.Screen.printAt(210, 170, "dx:%.1f  dy:%.1f", deltaX, deltaY);*/
+}
+
+
 //
 // Main will set up the competition functions and callbacks.
 //
 int main() {
   // Set up callbacks for autonomous and driver control periods.
-  Competition.autonomous(autonomous);
+  Competition.autonomous(leftFull);
   Competition.drivercontrol(usercontrol);
-
-  controllerPrim.ButtonA.pressed(toggleopneumatic);
-
+  newFunction();
   // Run the pre-autonomous function.
   pre_auton();
 
+
   // Prevent main from exiting with an infinite loop.
   while (true) {
-    wait(100, msec);
+    updatePosition(); // Update the odometry position
+    // Show the debug values and the odometry display
+    values();
+    odomDisplay();
+    task::sleep(10); // Wait some time between odometry cycles. Test making it shorter for better position estimates
   }
 }
