@@ -11,8 +11,6 @@
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
-#include "functions.h"
-#include "odom.h"
 
 using namespace vex;
 
@@ -105,8 +103,9 @@ void rightHalf(void)
   
 }
 
-void skills()
+void setonSkills()
 {
+
 
 }
 
@@ -149,11 +148,11 @@ void usercontrol(void)
       R2BASE.stop(coast);
     }
     
-    if (controllerPrim.ButtonR1.pressing())
+    if (controllerPrim.ButtonL1.pressing())
     {
       L2BASE.spin(fwd, 100, pct);
     }
-    else if (controllerPrim.ButtonR2.pressing())
+    else if (controllerPrim.ButtonL2.pressing())
     {
       L2BASE.spin(reverse, 100, pct);
     }
@@ -162,6 +161,15 @@ void usercontrol(void)
       L2BASE.stop(coast);
     }
 
+    /*
+    // Tap the screen to move to a corresponding point on the field
+    if (Brain.Screen.pressing())
+    {
+      setTarget(getScreenTouchX(), getScreenTouchY());
+      //turnToTarget(30);
+      moveToTarget(25, 25);
+    }
+  */
 
 
     // There's multiple control schemes
@@ -213,8 +221,6 @@ void usercontrol(void)
 
 
 
-
-
 void values()
 {
 
@@ -222,7 +228,7 @@ void values()
   Brain.Screen.setPenColor(white); // Set text color to white
 
   // Display debug values such as position, rotation, encoder values, total distancel, etc.
-  Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", globalX, globalY);
+  Brain.Screen.printAt(210, 30, "Pos: (%.1f, %.1f)     ", getGlobalX(), getGlobalY());
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getRotationDeg());
   Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f    ", getLeftReading(), getRightReading());
   Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
@@ -250,10 +256,11 @@ int main() {
 
   // Prevent main from exiting with an infinite loop.
   while (true) {
+    // Run these independently of auton and driver tasks
     updatePosition(); // Update the odometry position
     // Show the debug values and the odometry display
-    values();
     odomDisplay();
+    values();
     task::sleep(10); // Wait some time between odometry cycles. Test making it shorter for better position estimates
   }
 }

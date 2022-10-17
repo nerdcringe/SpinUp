@@ -1,16 +1,9 @@
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*    Program:      OdomDashboard                                             */
-/*    Module:       main.cpp                                                  */
-/*    Author:       C:\Users\joshu                                            */
-/*    Created:      Sun Jun 05 2022                                           */
-/*    Description:  Odometry tester bot code                                  */
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
-
 #include "vex.h"
 
 using namespace vex;
+
+
+// NEED: fwdRamp, turnRamp, constFwd, pneumatics, rollers/optical sensor
 
 
 // CONSTANTS //
@@ -21,7 +14,6 @@ const double toDegrees = 180.0 / PI; // multiply radians by this to convert to d
 
 //const double WHEEL_CIRCUMFERENCE = 3.25 * PI; // Circumference of powered wheels (diameter * PI)
 const double TRACKING_CIRCUMFERENCE = 2.75 * PI; // Circumference of tracking wheels (diameter * PI)
-
 
 
 //bool exitLoop = false; // Exit a movement loop if robot is stuck and encoders don't detect movement
@@ -132,7 +124,7 @@ double getRotationDeg()
 // Trig functions natively use radians
 double getRotationRad()
 {
-  return getRotationDeg()*toRadians;
+  return getRotationDeg() * toRadians;
 }
 
 
@@ -174,6 +166,7 @@ void stopBase()
   R3BASE.stop(coast);
   R4BASE.stop(coast);
 }
+
 
 
 
@@ -247,7 +240,7 @@ double fwdPIDCycle(double targetDist, double maxSpeed)
       fwd_integral = 0;
     }
     fwd_integral = keepInRange(fwd_integral, -integralPowerLimit, integralPowerLimit); // Limit the integral
-
+  
     fwd_derivative = fwd_error - fwd_lastError; // Derivative is the change in error since the last PID cycle
 
     speed = (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative); // Multiply each variable by its tuning constant

@@ -1,9 +1,5 @@
 #include "vex.h"
 
-#include "robot-config.h"
-#include "functions.h"
-
-
 // tracking wheel perpendicular distances from true center of robot.
 // Seen at page 4 of Pilons odometry doc (http://thepilons.ca/wp-content/uploads/2018/10/Tracking.pdf)
 const double leftOffset =  4.875; // left
@@ -24,6 +20,9 @@ const double rightOffset = 4.875; // right
 // These values always start at (0, 0) so everything is relative to the starting location of the robot
 double globalX = 0;
 double globalY = 0;
+
+double getGlobalX() { return globalX; }
+double getGlobalY() { return globalY; }
 
 
 // Current positions of tracking wheel encoders
@@ -68,7 +67,7 @@ double getDistanceTo(double x, double y)
 
 // Keep rotation within 180 degrees of the current robot angle
 // If an angle is over 180 degrees away, make the robot turn the other way because it's faster the other way
-double getClosestDeg(double deg)
+double angleWrap(double deg)
 {
   double robotAngle = getRotationDeg();
   while(deg > robotAngle + 180) // Subtract 360 if angle is too large
@@ -96,7 +95,7 @@ double getDegToPoint(double x, double y)
 
   // Prevent the robot from targeting a rotation over 180 degrees from its current rotation.
   // If it's more than 180 it's faster to turn the other direction
-  deg = getClosestDeg(deg);
+  deg = angleWrap(deg);
   
   return deg;
 }
@@ -221,11 +220,11 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed)
 
   // When within a few inches of the point, just move foward without turning
   // so the bot doesn't run in circles around the point if it overshoots by a hair
-  double pureFwdDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
+  double finalDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
 
   while (curFwdSpeed != 0/* && !isStopped()*/)
   {
-    curFwdSpeed = fwdPIDCycle(pureFwdDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
+    curFwdSpeed = fwdPIDCycle(finalDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
     curTurnSpeed = 0;
     
     setLeftBase(curFwdSpeed);
@@ -261,7 +260,7 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed)
   {
     targetDistance = -getDistanceTo(targetX, targetY); // negative
     targetDeg = getDegToPoint(targetX, targetY);
-    targetDeg = getClosestDeg(targetDeg - 180); // angle is 180 degrees so it faces backwards
+    targetDeg = angleWrap(targetDeg - 180); // angle is 180 degrees so it faces backwards
 
     // run one cycle of forwad and turn pid
     curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
@@ -275,11 +274,11 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed)
 
   // When within a few inches of the point, just move foward without turning
   // so the bot doesn't run in circles around the point if it overshoots by a hair
-  double pureFwdDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
+  double finalDistance = getTotalDistance() + targetDistance; // add current total distance to distance to target
 
   while (curFwdSpeed != 0/* && !isStopped()*/)
   {
-    curFwdSpeed = fwdPIDCycle(pureFwdDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
+    curFwdSpeed = fwdPIDCycle(finalDistance - getTotalDistance(), maxFwdSpeed); // error = desired - actual distance
     curTurnSpeed = 0;
     
     setLeftBase(curFwdSpeed);
@@ -372,7 +371,7 @@ void passTargetRev(double maxFwdSpeed, double maxTurnSpeed)
     if (fabs(targetDistance) > 2)
     {
       targetDeg = getDegToPoint(targetX, targetY);
-      targetDeg = getClosestDeg(targetDeg - 180); // angle is 180 degrees so it faces backwards
+      targetDeg = angleWrap(targetDeg - 180); // angle is 180 degrees so it faces backwards
       
       curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
     }
@@ -396,8 +395,8 @@ void passTargetRev(double maxFwdSpeed, double maxTurnSpeed)
 
 const double drawSize = 30; // tiles on screen have 30 pixel long side
 
-// screen is 480 x 272
 // Draw a point on the display to represent a global position
+// screen is 480 x 272
 void drawPoint(double x, double y)
 {
   double draw_pos_x = ((x / 24) * drawSize) + 105;
@@ -411,21 +410,31 @@ void drawPoint(double x, double y)
 }
 
 
-// Convert where the screen is tapped to global coordinates
+// Convert where the screen is tapped to global coordinates on the field display
 // Only really used for debugging
-double screenToGlobalX(double screenX)
+double getScreenTouchX()
 {
-  return ((screenX - 105) / drawSize) * 24;
+  return ((Brain.Screen.xPosition() - 105) / drawSize) * 24;
 }
-double screenToGlobalY(double screenY)
+double getScreenTouchY()
 {
-  return -((screenY - 105) / drawSize) * 24;
+  return -((Brain.Screen.yPosition() - 105) / drawSize) * 24;
 }
 
 
-// Draw the dashboard to visually display the robot's position and rotation on the field
+// Display the robot's position and rotation on the field
 void odomDisplay()
 {
+  // Draw Y
+
+  Brain.Screen.setPenColor(yellow);
+  Brain.Screen.setPenWidth(40);
+  Brain.Screen.drawLine(100, 125, 100, 220);
+  Brain.Screen.drawLine(100, 130, 35, 35);
+  Brain.Screen.drawLine(100, 130, 165, 35);
+
+
+  /*
   // Draw grid of the field
   Brain.Screen.setFillColor(black);
   Brain.Screen.setPenColor(color(100, 100, 100));
@@ -443,6 +452,7 @@ void odomDisplay()
   Brain.Screen.printAt(110, 30, "+y");
   Brain.Screen.printAt(110, 190, "-y");
   
+
   // Draw robot
   Brain.Screen.setFillColor(white);
   Brain.Screen.setPenWidth(0);
@@ -462,4 +472,5 @@ void odomDisplay()
                         
   Brain.Screen.setFillColor(purple);
   drawPoint(targetX, targetY); // Draw the target point on the screen
+  */
 }
