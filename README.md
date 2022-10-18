@@ -3,38 +3,36 @@
 This year for Spin-Up we wanted to prioritize accuracy because we're launching discs. Precise positioning is important for hitting the goals. We worked on a position tracking system, called odometry, for more accurate movements. Odometry allows the robot to move based on a system of x-y coordinates. Odometry also makes curved paths more accurate.
 
 
-# The Code
+# Code files
 
-## Important Variables 
+We organized the code into several files to make it more readable. Functions.cpp is for general functions, odom.cpp has odometry-specific functions, and main.cpp has the autons and driver control.
 
-#### double *globalX*, *globalY*
-The position of the robot relative to its starting position. 
+### Using this code
+You can add functions.cpp to your code without odom.cpp, but odom.cpp requires functions.cpp. Be sure to put the corresponding .h file into the includes folder in VEXcode. Also add the following line to vex.h:
+```
+#include "functions.h"
+#include "odom.h"
+```
+
+This will include the functions definitions from the header file into your code. Without this line, there is no way to access functions from other files in main.cpp.
  
+## Functions.cpp
 
-#### double *targetX*, *targetY*
-The current desired position of the robot that odometry movement functions will reference.
- 
-
-#### double *totalDistance*
-The total distance accumulated since the start of the current movement. It goes up when the bot moves forward and down when it moves in reverse. It uses the tracking wheel encoder's distance instead of motor encoders for precision.
-
-
- 
-## Movement Functions 
+General functions for movement, sensors, and pneumatics
 
 #### forwardPID 
 
-- Parameters: double *distance* (inches), double *maxSpeed* (percent) 
+- Parameters: double *distance* (inches), double *maxSpeed* (percent), int *timeoutMillis* (milliseconds)
 
-- Description: Move forward/backwards for a certain distance using PID algorithm. Limit the output speed of the PID to a certain maximum speed. 
+- Description: Move forward/backwards for a certain distance using PID algorithm. Limit the output speed of the PID to a certain maximum speed. Exit if timeoutMillis is specified and the timer runs out.
 
  
 
 #### turnPID 
 
-- Parameters: double *angle* (degrees), double *maxSpeed* (percent) 
+- Parameters: double *angle* (degrees), double *maxSpeed* (percent) , int *timeoutMillis* (milliseconds)
 
-- Description: Turn to a certain angle relative to the starting angle of the robot based on a PID algorithm. Limit the output speed of the PID to a certain maximum speed. 
+- Description: Turn to a certain angle relative to the starting angle of the robot based on a PID algorithm. Limit the output speed of the PID to a certain maximum speed.  Exit if timeoutMillis is specified and the timer runs out.
 
  
 
@@ -44,16 +42,24 @@ The total distance accumulated since the start of the current movement. It goes 
 
 - Description: Move forward/backwards for a certain distance at a speed that ramps up, maxes out and slows back down at the end. Use this for smaller distances that PID cannot handle well. Exit after a certain time (timeoutMs). 
 
- 
+
+### forwardConstant()
+- Parameters: double *distance* (inches), double *maxSpeed* (percent), int *timeoutMillis* (milliseconds) 
+
+- Description: Move forward/backwards for a certain distance at a constant speed. Use this for smaller distances that PID cannot handle well. Exit after a certain time (timeoutMs).
  
 
-## Odometry Functions
+## Odom.cpp
+Odometry-specific code for moving to a specific point
+
+#### updatePosition
+- Description: Update the current position. Put this inside the while loop in int main to make this always run in the background.
 
 #### setTarget 
 
 - Parameters: double *x* (inches), double *y* (inches) 
 
-- Description: Set the desired absolute target position on the field. 
+- Description: Set the desired target position. Use this before moving to a target. 
 
  
 
@@ -96,16 +102,6 @@ The total distance accumulated since the start of the current movement. It goes 
 - Description: Turn to the target position while moving backward to pass by the target. The robot will not slow down after it passes the target, so use this for intermediate movements. 
 
  
-## Sensor Functions
-
-#### double getDegrees 
-- Description: Return the current angle of the inertial sensor in degrees.
-
-
-#### double getRadians 
-- Description: Return the current angle of the inertial sensor in radians.
-
- 
 # Guide
 
 ## PID Controllers
@@ -114,35 +110,42 @@ A PID controller is an algorithm we use to move motors precisely. The default mo
 
 In PID, the distance or angle from a target is called *error*. The goal of PID is to reduce error as precisely as possible. Error is calculated with the formula: desired value - current value. Distance is found with the motor's integrated encoders and angle is found with the gyro/inertial sensor.
 
-To reduce error precisely, PID adds up three variables to obtain a final speed value.
-Each term is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and the cycle rapidly repeats.
-
+To reduce error precisely, PID adds up three variables to obtain a final speed output.
+Each variable is multiplied by a corresponding tuning constant that affects how much the term affects the final speed (Kp, Ki, and Kd). The motor's speed is updated, and the cycle repeats.
 
 ### P: Proportional
-- Speed is proportional to error
-- Fast when error is high and slow when error is low
-- Found by multiplying the error by Kp
-- Tuning:
-  - Increase if not fully reaching target.
-  - Decrease if overshooting slightly.
+- If you’re not where you want to be, get there. Go faster if you're far and slower if you're close.
+- Where most of the speed comes from.
+- Speed is proportional to error.
 
 ### I: Integral
-- Speed is the accumulated error
-- Accumulates if far away from the target for a while
-- When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
-- Tuning:
-  - Increase Ki if the robot stops before the target.
-  - Decrease Ki if the target is overshot and it takes a while to correct itself
+- If you haven’t been where you want to be for a long time, get there faster.
+- Makes sure speed is fast enough to overcome friction & weight of robot (called steady-state error).
+- Accumulates error over time.
 
 ### D: Derivative
-- Speed is rate of change of the error
-- Smooths out rapid changes in error when moving quickly due to P and I
-- Dampens any unwanted oscillations and overshoot
-- Tuning:
-  - Increase Kd if the robot overshoots or oscillates around the target.
-  - Decrease Kd if the robot stops before the target.
+- If you’re getting close to where you want to be, slow down.
+- Smooths out any unwanted oscillations and overshoot.
+- Based on rate of change of the error.
 
-Generally, P and I increase speed and D decreases speed. P is the majority of the speed, especially at the start of the movement. Then, towards the middle, it should slow down until I kicks in and speeds it up slightly. At the end, D reduces overshoot and oscillations around the target value. It takes practice to intuitively understand the nuances of each variable.
+### Tuning
+
+At the top of fwdPIDCycle and turnPIDCycle are the tuning constants. I usually start with values around these:
+
+Forwards:
+```
+Kp: start at 5
+Ki: start at 0, it usually ends up at something small like 0.01
+Kd: start at 1
+```
+Turning:
+```
+Kp: start at 0.6
+Ki: start at 0, it usually ends up at something small like 0.001
+Kd: start at 0.5
+```
+
+I usually start with Kp and make sure it's enough to get to the target. Then, increase Kd if the robot overshoots and oscillates around the target. Afterwards, if it is too slow when near the target, increase Ki to make it reach the target a little faster.
 
 
 ### PID Pseudocode
@@ -161,20 +164,6 @@ while (running)
   speed = Kp*error + Ki*integral + Kd*derivative; // Multiply each variable by its tuning constant and sum them up
   last_error = error;
 }
-```
-
-Approximate PID tuning values for distance (inches)
-```
-float Kp = 5;
-float Ki = 0.01;
-float Kd = 1;
-```
-
-Approximate PID tuning values for turning to a degree
-```
-float Kp = 0.6;
-float Ki = 0.001;
-float Kd = 0.5;
 ```
 
 
@@ -205,7 +194,7 @@ I then worked on turning towards a point. Inverse tangent gives the angle you ha
 
 In this pic the robot chooses to turn on the green shorter arc and not the red longer arc.
 
-<img src="https://user-images.githubusercontent.com/54510965/195656001-742022d7-2d7f-4dbe-befc-8a96bdf91f2d.png" width="450">
+<img src="https://user-images.githubusercontent.com/54510965/195656001-742022d7-2d7f-4dbe-befc-8a96bdf91f2d.png" width="350">
 
 Afterwards, the position tracking itself had to be worked on. The code gets the change in tracking wheel position and the current angle at every update. Then the distance and angle (called polar coordinates) are converted to x-y coordinates and added to the global position.
 
@@ -226,14 +215,24 @@ A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracki
 
 
 ### How to use
-Moving to a point first involves a command to set the target position. Afterwards, you may move to or turn to that target point.
+Moving to a point first involves a command to set the target position. Afterwards, you may move to or turn to that target point. Sometimes you need to lower the forward speed or raise the turning speed if the robot orbits around the target without stopping.
  
 ```
-setTarget(10, 10); // Set the target position to x=10, y=10 
+setTarget(10, 10); // Set the target position to x = 10 inches, y = 10 inches
 moveToTarget(30, 15); // Move to the target at 30% forward speed and 15% turning speed. 
 
 setTarget(0, 0); // Set the target position back to original position (0, 0) 
-moveToTargetRev(25, 5); // Move to the target in reverse at 25% backward speed and 5% turning speed. 
+moveToTargetRev(25, 5); // Move forward to (0, 0) at 25% backward speed and 5% turning speed. 
+```
+
+You can pass by a target position without stopping at it with the following code:
+
+```
+setTarget(10, 10); // Set the target position to x = 10 inches, y = 10 inches
+passToTarget(30, 15); // Move to the target at 30% forward speed and 15% turning speed. 
+
+setTarget(0, 0); // Set the target position back to original position (0, 0) 
+passToTargetRev(25, 5); // Back up to (0, 0) at 25% backward speed and 5% turning speed. 
 ```
 
 ## Multitasking In Autonomous
