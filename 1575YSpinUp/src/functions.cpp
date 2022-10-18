@@ -180,19 +180,18 @@ void stopBase()
   It adds up the three variables and uses the sum as the speed output.
 
     P: Proportional
-      - Fast when error is high and slow when eror is low
-      - Majority of the speed comes from P term
+      - If you’re not where you want to be, get there. Go faster if you're far and slower if you're close.
+      - Where most of the speed comes from.
     
     I: Integral
-      - Accumulates if far away from the target for a while
-      - When slowing down at the end from P, I makes sure speed is fast enough to overcome friction & weight of robot
+      - If you haven’t been where you want to be for a long time, get there faster.
+      - Makes sure speed is fast enough to overcome friction & weight of robot (steady-state error).
 
     D: Derivative
-      - If position is changing too fast, smooth out those changes
-      - Dampens any unwanted oscillations while trying to settle towards the target
+      - If you’re getting close to where you want to be, slow down.
+      - Smooths out any unwanted oscillations and overshoot.
 
   PID is tuned by changing the values Kp, Ki, and Kd (found in the PID cycle functions).
-  P is multiplied by Kp, I is multiplied by Ki, and D is multiplied by Kd.
   Each tuning constant controls how much its corresponding variable affects the speed output.
 */
 
@@ -220,7 +219,7 @@ double fwdPIDCycle(double targetDist, double maxSpeed)
   double Kd = 1;//45.0; // Derivative slows down the speed if it is too fast
 
   // Don't let the integral term have too much control
-  double integralPowerLimit = 40 / Ki; // little less than half power
+  double integralPowerLimit = 40 / Ki; // 40 is the maximum power that integral can contribute
   double integralActiveZone = 10; // Only start accumulating integral
   double errorThreshold = 0.25; // Exit loop when error is less than this
 
@@ -246,6 +245,7 @@ double fwdPIDCycle(double targetDist, double maxSpeed)
     speed = (Kp * fwd_error) + (Ki * fwd_integral) + (Kd * fwd_derivative); // Multiply each variable by its tuning constant
     speed =  keepInRange(speed, -maxSpeed, maxSpeed); // Restrict the absolute value of speed to the maximum allowed value
 
+    // make sure speed is always enough to overcome steady-state error
     if (speed > 0 && speed < 2) {
       speed = 2;
     } if (speed < 0 && speed > -2) {
@@ -312,7 +312,7 @@ double turnPIDCycle(double targetDegree, double maxSpeed)
 }
 
 
-// Run a closed PID loop for liinear distance in inches
+// Run a closed PID loop for linear distance in inches
 void forwardPID(double targetInches, double maxSpeed, int timeoutMillis = -1) // default timeout is -1, meaning unlimited
 {
   double speed = 1;
