@@ -43,7 +43,7 @@ General functions for movement, sensors, and pneumatics
 - Description: Move forward/backwards for a certain distance at a speed that ramps up, maxes out and slows back down at the end. Use this for smaller distances that PID cannot handle well. Exit after a certain time (timeoutMs). 
 
 
-### forwardConstant()
+#### forwardConstant
 - Parameters: double *distance* (inches), double *maxSpeed* (percent), int *timeoutMillis* (milliseconds) 
 
 - Description: Move forward/backwards for a certain distance at a constant speed. Use this for smaller distances that PID cannot handle well. Exit after a certain time (timeoutMs).
