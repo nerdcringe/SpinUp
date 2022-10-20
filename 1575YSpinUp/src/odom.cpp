@@ -152,6 +152,17 @@ void updatePosition()
   lastInertialRadians = getRotationRad();
 }
 
+/*
+// Update position for GPS sensor
+// Use this instead of the longer updatePosition if you're using the GPS sensor
+void updatePositionGPS()
+{
+  globalX = GPS.xPosition(distanceUnits::in);
+  globalY = GPS.yPosition(distanceUnits::in);
+}
+*/
+
+
 
 // AUTON STUFF ////////////////////////////////////////////////////////////////////////////////
 
