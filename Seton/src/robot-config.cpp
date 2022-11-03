@@ -43,7 +43,8 @@ Breaking down each word for motor_group instantiation is:
   BELOW ARE A FEW EXAMPLES OF motor, motor_group, and sensor INSTANTIATIONS
 */
 
-/*
+// real bot motors
+
 motor L1BASE(PORT15, true); // front
 motor L2BASE(PORT17, true); // back top
 motor L3BASE(PORT14); // back mid
@@ -53,10 +54,10 @@ motor R1BASE(PORT18);
 motor R2BASE(PORT13); 
 motor R3BASE(PORT19, true);
 motor R4BASE(PORT10);
-*/
+
 
 // mini bot
-
+/*
 motor L1BASE(PORT1); // front
 motor L3BASE(PORT17); // back top
 
@@ -68,22 +69,24 @@ motor L2BASE(PORT14); // back mid
 motor L4BASE(PORT11, true); // back bottom
 motor R2BASE(PORT19, true);
 motor R4BASE(PORT10);
-
+*/
 
 /* THREE-WIRE PORTS
     Old sensors still use three-wire ports like on the old system.
 */
-triport Triport(PORT22); // Get reference for three-wire ports on brain (arbitrarily called PORT22)
-triport TriportExt(PORT9); // Get reference for three wire extender ports
+triport Triport(PORT22); // Get reference for 3-wire ports on brain (arbitrarily called PORT22 but PORT22 doesn't really exist)
+triport TriportExt(PORT9); // Get reference for 3 wire extender ports
 
 // PNEUMATICS
-digital_out PWT(Triport.A);
+digital_out PTO(Triport.A); // power take off. Switches between 8 motor base and 6 motor + intake/roller + catapult
 
 // SENSORS
 inertial INERTIAL(PORT19);
+encoder encoderCata(Triport.D);
+
 encoder encoderL(TriportExt.A); // left tracking wheel
 encoder encoderR(TriportExt.C); // right tracking wheel
-encoder encoderCata(Triport.B);
+
 
 // CONTROLLER
 controller controllerPrim(controllerType::primary);

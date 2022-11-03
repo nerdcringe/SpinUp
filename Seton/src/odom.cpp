@@ -466,15 +466,15 @@ void odomDisplay()
 {
   // Draw Y
 
-/*
+
   Brain.Screen.setPenColor(yellow);
   Brain.Screen.setPenWidth(40);
   Brain.Screen.drawLine(100, 125, 100, 220);
   Brain.Screen.drawLine(100, 130, 35, 35);
   Brain.Screen.drawLine(100, 130, 165, 35);
-*/
 
-  
+
+  /*
   // Draw grid of the field
   Brain.Screen.setFillColor(black);
   Brain.Screen.setPenColor(color(100, 100, 100));
@@ -512,5 +512,6 @@ void odomDisplay()
                         
   Brain.Screen.setFillColor(purple);
   drawPoint(targetX, targetY); // Draw the target point on the screen
+  */
   
 }

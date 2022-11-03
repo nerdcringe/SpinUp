@@ -151,7 +151,9 @@ double getRotationRad()
 void setLeftBase(double speed)
 {
   L1BASE.spin(fwd, speed, pct);
-  L2BASE.spin(fwd, speed, pct);
+  if (PTO.value() == 0) { // If pto in - 8 motor
+    L2BASE.spin(fwd, speed, pct);
+  }
   L3BASE.spin(fwd, speed, pct);
   L4BASE.spin(fwd, speed, pct);
 }
@@ -159,7 +161,9 @@ void setLeftBase(double speed)
 void setRightBase(double speed)
 {
   R1BASE.spin(fwd, speed, pct);
-  R2BASE.spin(fwd, speed, pct);
+  if (PTO.value() == 0) { // If pto in - 8 motor
+    R2BASE.spin(fwd, speed, pct);
+  }
   R3BASE.spin(fwd, speed, pct);
   R4BASE.spin(fwd, speed, pct);
 }
@@ -181,6 +185,185 @@ void stopBase()
   R2BASE.stop(coast);
   R3BASE.stop(coast);
   R4BASE.stop(coast);
+}
+
+
+
+// Speed up and slow down gradually
+// Use negative distance to go backwards
+// More info: https://www.vexforum.com/t/advanced-pid-and-motion-profile-control/28400/3
+void forwardInches(double inches, int maxSpeed)
+{
+  resetTotalDistance();
+  //maxSpeed = keepInRange(maxSpeed, 0, 100);
+
+  //MinSpeed : Ensures the movement overcomes friction.
+  const double minSpeed = 2;      // Lowest speed the motors will go; Turning is more precise but jankier when lower.
+
+  // Acceleration rates: changes rate of speed up/slow down
+  // Gradually speeds up for the first half, slows down for second half
+  const double accelRate = 30;    // Speed multiplier while speeding up (slope at start).
+  const double deaccelRate = 8;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
+
+  double targetDistance = inchesToTicks(inches);  // How far the robot should travel
+  double targetRange = 3;                         // Distance from the desired distance the robot has to be to stop.
+  double error = targetDistance;                  // Distance from the desired distance
+  double speed;                                   // Actual speed value of the motors
+
+  while (fabs(error) > targetRange) {
+
+    error = targetDistance - getTotalDistance(); // Error = desired - actual
+
+    // First half: accelerate to max. Second half, deccelerate to min
+      // Speed is proportional to the error/target distance.
+      // Since error is always decreasing, the speed proportion is inverted (subtracted from 1) for the first half of distance
+      // travelled so speed increases proportionally instead of decreasing. 
+      // fabs() (absolute value) is used because the direction is determined by the sign of the error, not of the speed.
+    if (fabs(error) > fabs(targetDistance/2))
+    {
+      speed = (1 - (fabs(error) / fabs(targetDistance))) * accelRate; // Speeds up as error decreases
+    }
+    else
+    {
+      speed = (fabs(error) / fabs(targetDistance)) * deaccelRate;  // Slows down as error increases
+    }
+    speed = fabs(speed);
+    speed *= maxSpeed;
+    speed = keepInRange(speed, minSpeed, maxSpeed);
+
+    // Go forward if positive error and backwards if negative error
+    if (error < 0)
+    {
+      speed *= -1;
+    }
+    setLeftBase(speed);
+    setRightBase(speed);
+
+    Brain.Screen.printAt(1, 60, "Target Dist: %.2f  ", ticksToInches(targetDistance));
+    Brain.Screen.printAt(1, 80, "Progress:    %.2f  ", ticksToInches(getTotalDistance()));
+    Brain.Screen.printAt(1, 120,"Error:       %.2f ticks, %.2f \"inches\"     ", error, ticksToInches(error));
+    Brain.Screen.printAt(1, 100,"Speed:       %.2f  ", speed);
+  }
+
+  stopBase();
+  task::sleep(15);
+}
+
+
+
+
+void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs)
+{
+  resetTotalDistance();
+  //maxSpeed = keepInRange(maxSpeed, 0, 100);
+
+  //MinSpeed :  Ensures the movement overcomes friction.
+  const double minSpeed = 2;      // Lowest speed the motors will go; Turning is more precise but jankier when lower.
+
+  // Acceleration rates: changes rate of speed up/slow down
+  // Gradually speeds up for the first half, slows down for second half
+  const double accelRate = 30;    // Speed multiplier while speeding up (slope at start).
+  const double deaccelRate = 8;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
+
+  double targetDistance = inchesToTicks(inches);  // How far the robot should travel
+  double targetRange = 3;                         // Distance from the desired distance the robot has to be to stop.
+  double error = targetDistance;                  // Distance from the desired distance
+  double speed;                                   // Actual speed value of the motors
+
+  timer Timer;
+  Timer.clear();
+
+  while (fabs(error) > targetRange && Timer.time(msec) <= maxTimeMs) {
+
+    error = targetDistance - getTotalDistance(); // Error = desired - actual
+
+    // First half: accelerate to max. Second half, deccelerate to min
+      // Speed is proportional to the error/target distance.
+      // Since error is always decreasing, the speed proportion is inverted (subtracted from 1) for the first half of distance
+      // travelled so speed increases proportionally instead of decreasing. 
+      // fabs() (absolute value) is used because the direction is determined by the sign of the error, not of the speed.
+    if (fabs(error) > fabs(targetDistance/2))
+    {
+      speed = (1 - (fabs(error) / fabs(targetDistance))) * accelRate; // Speeds up as error decreases
+    }
+    else
+    {
+      speed = (fabs(error) / fabs(targetDistance)) * deaccelRate;  // Slows down as error increases
+    }
+    speed = fabs(speed);
+    speed *= maxSpeed;
+    speed = keepInRange(speed, minSpeed, maxSpeed);
+
+    // Go forward if positive error and backwards if negative error
+    if (error < 0)
+    {
+      speed *= -1;
+    }
+    setLeftBase(speed);
+    setRightBase(speed);
+
+    /*Brain.Screen.printAt(1, 60, "Target Dist: %.2f", ticksToInches(targetDistance));
+    Brain.Screen.printAt(1, 80, "Progress:    %.2f", ticksToInches(encoderAverage()));
+    Brain.Screen.printAt(1, 120,"Error:       %.2f ticks, %.2f \"inches\"", error, ticksToInches(error));
+    Brain.Screen.printAt(1, 100,"Speed:       %.2f", speed);*/
+  }
+
+  stopBase();
+  task::sleep(15);
+}
+
+
+// Absolute turn in degrees
+void gyroTurn(double targetAngle, int maxSpeed)
+{
+  double initialAngle = getRotationDeg();
+  //          <---------------------------|------------------->
+  // Negative Degrees (Counterclockwise),    Positive Degrees (Clockwise)
+  double relativeAngle = targetAngle - getRotationDeg();
+
+  double targetRange = 2; // Distance from the desired angle that is allowed
+  double error = relativeAngle; // Distance from the desired range
+  double progress;              // Degrees the robot has turned already
+  double minSpeed = 5; // Lowest speed the motors will go; Turning is generally more precise when lower, but slower.
+  double deaccelRate = 2.5;//3; // 2.4
+
+  double speed; // Actual speed value of the motors
+
+  maxSpeed = keepInRange(maxSpeed, 0, 100);
+
+  while (fabs(error) > targetRange) {
+    progress = getRotationDeg() - initialAngle;
+    error = progress - relativeAngle;
+
+    // Speed starts at maximum and approaches minimum as the gyro value
+    // approaches the desired angle. It deccelerates for precision.
+    speed = fabs(error / relativeAngle); // Speed is absolute valued so that it can be kept in range properly
+    speed *= maxSpeed * deaccelRate;
+    speed = keepInRange(speed, minSpeed, maxSpeed);
+    
+    // Keep speed either above maxSpeed or below negative maxSpeed so it's fast enough to overcome friction
+    if (error > 0) {
+      setLeftBase(-speed);
+      setRightBase(speed);
+    } else {
+      setLeftBase(speed);
+      setRightBase(-speed);
+    }
+
+    /*controllerPrim.Screen.clearScreen();
+    task::sleep(10);
+    controllerPrim.Screen.setCursor(1, 1);
+    task::sleep(10);
+    controllerPrim.Screen.print("%f", getRotation());*/
+
+     Brain.Screen.printAt(1, 120, "Desired angle: %.2f, Relative angle: %.2f",
+     degrees, relativeAngle);
+     Brain.Screen.printAt(1, 140, "Speed: %.2f, Error: %.2f", speed, error);
+     Brain.Screen.printAt(1, 180, "Gyro: %.2f", getRotationDeg());
+  }
+
+  stopBase();
+  task::sleep(15);
 }
 
 
@@ -408,3 +591,29 @@ void setCata(int setPoint)
   }
   L2BASE.stop();
 }*/
+
+
+// pneuamtics
+
+
+
+void ptoOn(){
+  PTO.set(1);
+}
+
+void ptoOff(){
+  PTO.set(0);
+}
+
+void togglePto()
+{  
+  //controllerPrim.Screen.print("%d", PWT.value());
+  if (PTO.value() == 1) // if out
+  {
+    PTO.set(0); // set to in - 8 motor
+  }
+  else // else it's in
+  {
+    PTO.set(1); // set to out - 6 motor
+  }
+}

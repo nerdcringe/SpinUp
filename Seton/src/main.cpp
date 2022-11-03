@@ -18,27 +18,6 @@ using namespace vex;
 competition Competition;
 
 
-void pneumaticOn(){
-  PWT.set(1);
-}
-
-void pneumaticOff(){
-  PWT.set(0);
-}
-
-void toggleopneumatic(){
-  if (PWT.value() == 1)
-  {
-    PWT.set(0);
-  }
-  else 
-  {
-    PWT.set(1);
-  }
-}
-
-
-
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
@@ -110,16 +89,31 @@ void leftFull()
   setBase(15);*/
 
 
-  setTargetPolar(30, -48); // 5 in towards -45 deg
-  passTarget(45*1.2, 22*1.2);
 
-  setTargetPolar(10, 0); // 10 in towards 0 deg
-  moveToTarget(30*1.2, 25*1.2);
+
+
+  setTargetPolar(32, -50); // 5 in towards -45 deg
+  passTarget(40*1, 22*1);
+
+  setTargetPolar(10, -50); // 5 in towards -45 deg
+  passTarget(40*0.6, 22*0.6);
+
+  turnPID(30.5,30);
+  forwardPID(10,50);
+
+  forwardPID(-10,50);
+  turnPID(-45,30);
+
+
+  stopBase();
+  /*setTargetPolar(10, 0); // 10 in towards 0 deg
+  moveToTarget(30*1, 25*1);
 
   turnPID(31, 30);
+  wait(1000, msec);*/
   
-  turnPID(-40, 30);
-  forwardPID(75, 60);
+  //turnPID(-40, 30);
+  //forwardPID(75, 60);
 
 
 
@@ -157,8 +151,8 @@ void setonSkills()
 void usercontrol(void)
 {
 
-  // set up controller callbacks
-  controllerPrim.ButtonLeft.pressed(toggleopneumatic);
+  // set up controller callbacks befoe the code starts
+  controllerPrim.ButtonDown.pressed(togglePto);
   
   // User control code here, inside the loop
   while (1 == 1) {  
@@ -173,34 +167,31 @@ void usercontrol(void)
     R3BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
     R4BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
 
+    if (PTO.value() == 1) // if power takeoff is out
+    {
+      // catapult
+      if (controllerPrim.ButtonR2.pressing()) {
+        R2BASE.spin(fwd, 100, pct);
+      } else if (controllerPrim.ButtonR1.pressing()) {
+        R2BASE.spin(reverse, 100, pct);
+      } else {
+        R2BASE.stop(coast);
+      }
 
-    // catapult
-    if (controllerPrim.ButtonR1.pressing())
-    {
-      R2BASE.spin(fwd, 100, pct);
+      // Rollers/intake
+      if (controllerPrim.ButtonL1.pressing()) {
+        L2BASE.spin(fwd, 100, pct);
+      } else if (controllerPrim.ButtonL2.pressing()) {
+        L2BASE.spin(reverse, 100, pct);
+      } else {
+        L2BASE.stop(coast);
+      }
     }
-    else if (controllerPrim.ButtonR2.pressing())
-    {
-      R2BASE.spin(reverse, 100, pct);
-    }
-    else
-    {
-      R2BASE.stop(coast);
+    else { // power takeoff in - all 8 motors. include 2
+      L2BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
+      R2BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
     }
     
-    // Rollers/intake
-    if (controllerPrim.ButtonL1.pressing())
-    {
-      L2BASE.spin(fwd, 100, pct);
-    }
-    else if (controllerPrim.ButtonL2.pressing())
-    {
-      L2BASE.spin(reverse, 100, pct);
-    }
-    else
-    {
-      L2BASE.stop(coast);
-    }
 
     /*
     // Tap the screen to move to a corresponding point on the field
@@ -211,50 +202,6 @@ void usercontrol(void)
       moveToTarget(35, 20);
     }*/
   
-
-
-    // There's multiple control schemes
-
-    /*leftDrive(controllerPrim.Axis3.value());
-    rightDrive(controllerPrim.Axis2.value());
-    */
-
-    
-
-/*
-    if (controllerPrim.ButtonR1.pressing())
-    {
-      R1BASE_ROLLER.spin(fwd, 100, pct);
-    }
-    else if (controllerPrim.ButtonR2.pressing())
-    {
-      R1BASE_ROLLER.spin(reverse, 100, pct);
-    }
-    else
-    {
-      R1BASE_ROLLER.stop(coast);
-    }
-
-    
-    if (controllerPrim.ButtonL1.pressing())
-    {
-      L1BASE.spin(fwd, 100, pct);
-      L2BASE.spin(fwd, 100, pct);
-      R2BASE.spin(fwd, 100, pct);
-    }
-    else if (controllerPrim.ButtonL2.pressing())
-    {
-      L1BASE.spin(reverse, 100, pct);
-      L2BASE.spin(reverse, 100, pct);
-      R2BASE.spin(reverse, 100, pct);
-    }
-    else
-    {
-      L1BASE.stop(coast);
-      L2BASE.stop(coast);
-      R2BASE.stop(coast);
-    }*/
-
     wait(20, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
   }
@@ -294,6 +241,7 @@ int main() {
   // Run the pre-autonomous function.
   pre_auton();
 
+  //controllerPrim.ButtonDown.pressed(toggleopneumatic);
 
   // Prevent main from exiting with an infinite loop.
   while (true) {

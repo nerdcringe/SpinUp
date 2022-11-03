@@ -37,6 +37,11 @@ void setLeftBase(double speed);
 void setRightBase(double speed);
 void setBase(double speed);
 void stopBase();
+void forwardInches(double inches, int maxSpeed); // fake PID. speeds up and slows down
+void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs); // specify time for PID if stuck against wall
+void gyroTurn(double targetAngle, int maxSpeed); // fake PID turn
+
+
 
 // PID
 double fwdPIDCycle(double targetDist, double maxSpeed); // Get speed from one cycle of PID
@@ -49,5 +54,8 @@ void turnPID(double targetDeg, double maxSpeed, int timeoutMillis=-1); // Move a
 
 
 // PNEUMATICS
+void ptoOn();
+void ptoOff();
+void togglePto();
 
 
