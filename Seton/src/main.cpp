@@ -153,6 +153,8 @@ void usercontrol(void)
 
   // set up controller callbacks befoe the code starts
   controllerPrim.ButtonDown.pressed(togglePto);
+  controllerPrim.ButtonB.pressed(catapultFireAsync); // fire in a separate task
+
   
   // User control code here, inside the loop
   while (1 == 1) {  
@@ -191,7 +193,6 @@ void usercontrol(void)
       L2BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
       R2BASE.spin(fwd, controllerPrim.Axis2.value(), pct);
     }
-    
 
     /*
     // Tap the screen to move to a corresponding point on the field
@@ -220,6 +221,8 @@ void values()
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getRotationDeg());
   Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f    ", getLeftReading(), getRightReading());
   Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
+  Brain.Screen.printAt(210,110, "Rot: %.2f deg      ", encoderL.rotation(deg));
+
 
   //Brain.Screen.printAt(210, 130, "isStopped: %d   ", isStopped());
 
@@ -244,7 +247,15 @@ int main() {
   //controllerPrim.ButtonDown.pressed(toggleopneumatic);
 
   // Prevent main from exiting with an infinite loop.
+  // A lot of asyncronous tasks separate from the auton and driver task occur here
+
+  task c(catapultPID); // control the cata's PID separate from autonomous task
+
+
   while (true) {
+
+    //catapultPID(); // control the cata's PID separate from autonomous task
+
     // Run these independently of auton and driver tasks
     updatePosition(); // Update the odometry position
     // Show the debug values and the odometry display

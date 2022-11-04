@@ -8,12 +8,18 @@ using namespace vex;
 
 // CONSTANTS //
 
+#define pto_6m_val 1
+#define pto_8m_val 0
+
+
 #define PI 3.14159265
 const double toRadians = PI / 180.0; // multiply degrees by this to convert to radians
 const double toDegrees = 180.0 / PI; // multiply radians by this to convert to degrees
 
 //const double WHEEL_CIRCUMFERENCE = 3.25 * PI; // Circumference of powered wheels (diameter * PI)
 const double TRACKING_CIRCUMFERENCE = 2.75 * PI; // Circumference of tracking wheels (diameter * PI)
+
+const double cataResetAngle = 45;
 
 
 //bool exitLoop = false; // Exit a movement loop if robot is stuck and encoders don't detect movement
@@ -522,9 +528,9 @@ void forwardPID(double targetInches, double maxSpeed, int timeoutMillis) // defa
   // While time isn't up or time isn't set (default value of -1)
   while (speed != 0 && (Timer.time() < timeoutMillis || timeoutMillis == -1))
   {
-    double currentDist = targetInches - getTotalDistance(); // calculate the distance from target
+    double error = targetInches - getTotalDistance(); // calculate the distance from target
 
-    speed = fwdPIDCycle(currentDist, maxSpeed); // plug in distance and speed into PID
+    speed = fwdPIDCycle(error, maxSpeed); // plug in error and speed into PID
     setLeftBase(speed);
     setRightBase(speed);
 
@@ -557,63 +563,110 @@ void turnPID(double targetDeg, double maxSpeed, int timeoutMillis) // default ti
 }
 
 
-/*
-int getCataPos()\
+// catapult //
+
+bool doCataPID = false;
+
+int catapultPID()
 {
-  // get remainder from 360 so if it makes a full rotation it goes back to 0
-  return (  (int) encoderCata.position(deg) ) % 360;
-  //return ((int) round(encoderCata.position(deg)) % 360) / 2.14; // divide by gear ratio
-}
+  double Kp = 0.5; // proportion between error and speed
+  double Kd = 0.0; // proportion between error and speed
+  int minSpeed = 3; // motor only moves when going at least 2%ish
+  int maxSpeed = 20;
+  
+  double error = 0;
+  double cata_lastError = error;
+  double derivative = 0;
 
-
-void setCata(int setPoint)
-{
-  double Kp = 0.3; // proportion between error and speed
-  double error = setPoint - getCataPos();
-
-  while (fabs(error) > 1)
+  while (true)
   {
-    error = setPoint - getCataPos();
-    double speed = Kp * error; // speed is proportional to error
-
-    // make sure speed doesn't exceed maxSpeed
-    double maxSpeed = 30;
-    if (speed > maxSpeed)
+  Brain.Screen.printAt(210, 220, "%d", doCataPID);
+    while (doCataPID && PTO.value() == 1) // only repeat if not reset and if pto is using cata
     {
-      speed = maxSpeed;
-    }
-    else if (speed < -maxSpeed)
-    {
-      speed = -maxSpeed;
-    }
+      error = cataResetAngle - CATAPOT.angle();
+      derivative = error - cata_lastError;
 
-    L2BASE.spin(fwd, speed, pct);
-  }
-  L2BASE.stop();
-}*/
+      // sum up the tuned PID variables to obtain a speed value
+      double speed = (Kp * error) + (Kd * derivative); // speed is proportional to error (P) and smooths out oscillations (D)
 
+      // make sure speed doesn't exceed maxSpeed
+      if (speed > maxSpeed) {
+        speed = maxSpeed;
+      } else if (speed < -maxSpeed) {
+        speed = -maxSpeed;
+      }
 
-// pneuamtics
+      if (speed > 0 && speed < minSpeed) {
+        // if going forward, make speed at least minSpeed in positive direction
+        speed = minSpeed;
+      } else if (speed < 0 && speed > -minSpeed) {
+        // if going reverse, make speed at least minSpeed in negative direction
+        speed = -minSpeed;
+      }
 
+      R2BASE.spin(fwd, speed, pct);
+      task::sleep(15);
 
+      if (fabs(error) < 1) // when within this distance of resetAngle, exit the loop
+      {
+        L1BASE.stop();
+        doCataPID = false;
+        Brain.Screen.printAt(210, 200, "Done PID");
+      }
 
-void ptoOn(){
-  PTO.set(1);
+    } // while (doCataPID)
+
+    task::sleep(25); // wait to give cpu a rest
+  } // while (true)
+  return 0;
 }
 
-void ptoOff(){
-  PTO.set(0);
+
+
+int catapultFire()
+{
+  Brain.Screen.printAt(210, 130, "start fire");
+  doCataPID = false;
+  wait(100, msec);
+  while (CATAPOT.angle() > 20 && PTO.value() == 1) // while cata rotation is still high (before it launches)
+  {
+        Brain.Screen.printAt(210, 150, "waiting fire");
+    R2BASE.spin(fwd, 15, pct); // bring down cata to fire
+  }
+  R2BASE.stop();
+  wait(500, msec);
+        Brain.Screen.printAt(210, 170, "done fire");
+  doCataPID = true;
+
+  return 0;
+}
+
+void catapultFireAsync()
+{
+  task f(catapultFire); // fire in a separate task
+}
+
+
+
+// pneumatics //
+
+void pto6(){
+  PTO.set(pto_6m_val);
+}
+
+void pto8(){
+  PTO.set(pto_8m_val);
 }
 
 void togglePto()
 {  
   //controllerPrim.Screen.print("%d", PWT.value());
-  if (PTO.value() == 1) // if out
+  if (PTO.value() == pto_6m_val) // if out - 6 motor
   {
-    PTO.set(0); // set to in - 8 motor
+    pto8(); // set to in - 8 motor
   }
-  else // else it's in
+  else // else it's in - 8 motor
   {
-    PTO.set(1); // set to out - 6 motor
+    pto6(); // set to out - 6 motor
   }
 }

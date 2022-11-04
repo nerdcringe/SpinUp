@@ -50,12 +50,13 @@ void forwardPID(double targetInches, double maxSpeed, int timeoutMillis=-1); // 
 void turnPID(double targetDeg, double maxSpeed, int timeoutMillis=-1); // Move according to PID. Use for auton
 
 // CATAPULT
-
-
+int catapultPID(); // does cata PID in separate task from auton
+int catapultFire(); // use in auton task to fire the cata. blocks code so call in separate task for driver
+void catapultFireAsync(); // driver
 
 // PNEUMATICS
-void ptoOn();
-void ptoOff();
+void pto6();
+void pto8();
 void togglePto();
 
 
