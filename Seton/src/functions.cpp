@@ -204,15 +204,15 @@ void forwardInches(double inches, int maxSpeed)
   //maxSpeed = keepInRange(maxSpeed, 0, 100);
 
   //MinSpeed : Ensures the movement overcomes friction.
-  const double minSpeed = 2;      // Lowest speed the motors will go; Turning is more precise but jankier when lower.
+  const double minSpeed = 3;      // Lowest speed the motors will go; Turning is more precise but jankier when lower.
 
   // Acceleration rates: changes rate of speed up/slow down
   // Gradually speeds up for the first half, slows down for second half
-  const double accelRate = 30;    // Speed multiplier while speeding up (slope at start).
-  const double deaccelRate = 8;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
+  const double accelRate = 100;    // Speed multiplier while speeding up (slope at start).
+  const double deaccelRate = 4;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
 
-  double targetDistance = inchesToTicks(inches);  // How far the robot should travel
-  double targetRange = 3;                         // Distance from the desired distance the robot has to be to stop.
+  double targetDistance = inches;/*inchesToTicks(inches)*/;  // How far the robot should travel
+  double targetRange = .25;                         // Distance from the desired distance the robot has to be to stop.
   double error = targetDistance;                  // Distance from the desired distance
   double speed;                                   // Actual speed value of the motors
 
@@ -245,9 +245,9 @@ void forwardInches(double inches, int maxSpeed)
     setLeftBase(speed);
     setRightBase(speed);
 
-    Brain.Screen.printAt(1, 60, "Target Dist: %.2f  ", ticksToInches(targetDistance));
-    Brain.Screen.printAt(1, 80, "Progress:    %.2f  ", ticksToInches(getTotalDistance()));
-    Brain.Screen.printAt(1, 120,"Error:       %.2f ticks, %.2f \"inches\"     ", error, ticksToInches(error));
+    Brain.Screen.printAt(1, 60, "Target Dist: %.2f  ", (targetDistance));
+    Brain.Screen.printAt(1, 80, "Progress:    %.2f  ", (getTotalDistance()));
+    Brain.Screen.printAt(1, 120,"Error:       %.2f      ", error);
     Brain.Screen.printAt(1, 100,"Speed:       %.2f  ", speed);
   }
 
@@ -271,7 +271,7 @@ void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs)
   const double accelRate = 30;    // Speed multiplier while speeding up (slope at start).
   const double deaccelRate = 8;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
 
-  double targetDistance = inchesToTicks(inches);  // How far the robot should travel
+  double targetDistance = inches;  // How far the robot should travel
   double targetRange = 3;                         // Distance from the desired distance the robot has to be to stop.
   double error = targetDistance;                  // Distance from the desired distance
   double speed;                                   // Actual speed value of the motors
@@ -312,6 +312,10 @@ void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs)
     Brain.Screen.printAt(1, 80, "Progress:    %.2f", ticksToInches(encoderAverage()));
     Brain.Screen.printAt(1, 120,"Error:       %.2f ticks, %.2f \"inches\"", error, ticksToInches(error));
     Brain.Screen.printAt(1, 100,"Speed:       %.2f", speed);*/
+    Brain.Screen.printAt(1, 60, "Target Dist: %.2f  ", (targetDistance));
+    Brain.Screen.printAt(1, 80, "Progress:    %.2f  ", (getTotalDistance()));
+    Brain.Screen.printAt(1, 120,"Error:       %.2f      ", error);
+    Brain.Screen.printAt(1, 100,"Speed:       %.2f  ", speed);
   }
 
   stopBase();
@@ -564,7 +568,7 @@ void turnPID(double targetDeg, double maxSpeed, int timeoutMillis) // default ti
 
 
 // catapult //
-
+ //untested
 bool doCataPID = false;
 
 int catapultPID()
@@ -622,7 +626,7 @@ int catapultPID()
 }
 
 
-
+// untested
 int catapultFire()
 {
   Brain.Screen.printAt(210, 130, "start fire");
@@ -644,6 +648,24 @@ int catapultFire()
 void catapultFireAsync()
 {
   task f(catapultFire); // fire in a separate task
+}
+\
+
+bool resettingCata = false;
+void catapultReset()
+{
+  if (!resettingCata) // only click when not resetting cata yet
+  {
+    resettingCata = true;
+    R2BASE.spin(reverse, 100, pct); // start esetting cata
+
+    while (!CATALIMIT.pressing() && resettingCata){// && PTO.value() == pto_6m_val){ 
+      // reload to limit switchs
+      wait(10, msec);
+    }
+    resettingCata = false;
+    R2BASE.stop();
+  }
 }
 
 

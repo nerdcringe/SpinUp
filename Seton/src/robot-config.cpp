@@ -45,7 +45,7 @@ Breaking down each word for motor_group instantiation is:
 
 // real bot motors
 
-/*
+
 motor L1BASE(PORT15, true); // front
 motor L2BASE(PORT17, true); // top, also rollers/intake
 motor L3BASE(PORT14); // mid
@@ -55,10 +55,10 @@ motor R1BASE(PORT18);
 motor R2BASE(PORT13); // cata
 motor R3BASE(PORT19, true);
 motor R4BASE(PORT10);
-*/
+
 
 // mini bot
-
+/*
 motor L1BASE(PORT1); // front
 motor L3BASE(PORT17); // back top
 
@@ -70,7 +70,7 @@ motor L2BASE(PORT14); // back mid
 motor L4BASE(PORT11, true); // back bottom
 motor R2BASE(PORT19, true);
 motor R4BASE(PORT10);
-
+*/
 
 /* THREE-WIRE PORTS
     Old sensors still use three-wire ports like on the old system.
@@ -84,6 +84,8 @@ digital_out PTO(Triport.A); // power take off. Switches between 8 motor base and
 // SENSORS
 inertial INERTIAL(PORT19);
 rotation CATAPOT(PORT12); // catapult rotation sensor
+
+limit CATALIMIT(Triport.D);
 
 encoder encoderL(TriportExt.C); // left tracking wheel
 encoder encoderR(TriportExt.E); // right tracking wheel

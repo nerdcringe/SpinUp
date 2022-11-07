@@ -101,6 +101,7 @@ extern digital_out PTO;
 // SENSORS /////////////////////////////////////
 extern inertial INERTIAL; // gives angle of robot
 extern rotation CATAPOT; // gives angle of catapult for auto-loading
+extern limit CATALIMIT;
 extern encoder encoderL; // left tracking wheel
 extern encoder encoderR; // right tracking wheel
 ////////////////////////////////////////////

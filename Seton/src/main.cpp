@@ -41,6 +41,16 @@ void pre_auton(void) {
   Brain.Screen.drawRectangle(0, 0, 480, 272);
 
 
+
+
+  // Draw Y
+
+  Brain.Screen.setPenColor(yellow);
+  Brain.Screen.setPenWidth(40);
+  Brain.Screen.drawLine(100, 125, 100, 220);
+  Brain.Screen.drawLine(100, 130, 35, 35);
+  Brain.Screen.drawLine(100, 130, 165, 35);
+
   INERTIAL.calibrate();
   // Wait until the inertial sensor finishes calibrating
   while (INERTIAL.isCalibrating())
@@ -69,7 +79,7 @@ void pre_auton(void) {
 // AUTON ///////////////////////////////////////////////////////////////////
 
 // full wp
-void leftFull()
+void leftFullOdom()
 {
   resetOdomPosition();
   /*
@@ -115,11 +125,16 @@ void leftFull()
   //turnPID(-40, 30);
   //forwardPID(75, 60);
 
-
-
-
-  
 }
+
+void leftFull()
+{
+  //forwardPID(-100,30, 3000);
+  //turnPID(-45,30);
+
+  forwardInchesTimed(20,20,2000);
+}
+
 
 void rightFull()
 {
@@ -145,19 +160,18 @@ void setonSkills()
 }
 
 
-
-
 // DRIVER ///////////////////////////////////////////////////////////////////
 void usercontrol(void)
 {
 
+  
   // set up controller callbacks befoe the code starts
   controllerPrim.ButtonDown.pressed(togglePto);
-  controllerPrim.ButtonB.pressed(catapultFireAsync); // fire in a separate task
+  controllerPrim.ButtonR1.pressed(catapultReset); // fire in a separate task
 
   
   // User control code here, inside the loop
-  while (1 == 1) {  
+  while (1 == 1) {
 
     L1BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
     //L2BASE.spin(fwd, controllerPrim.Axis3.value(), pct);
@@ -173,12 +187,18 @@ void usercontrol(void)
     {
       // catapult
       if (controllerPrim.ButtonR2.pressing()) {
-        R2BASE.spin(fwd, 100, pct);
-      } else if (controllerPrim.ButtonR1.pressing()) {
+        resettingCata = false; // stop resetting cata if manually pressed
+        R2BASE.spin(reverse, 100, pct);
+      }
+      else if (!resettingCata) // if not currently rresetting, stop when not prressing manual cata
+      {
+        R2BASE.stop(coast);
+      }
+      /* else if (controllerPrim.ButtonR1.pressing()) {
         R2BASE.spin(reverse, 100, pct);
       } else {
         R2BASE.stop(coast);
-      }
+      }*/
 
       // Rollers/intake
       if (controllerPrim.ButtonL1.pressing()) {
@@ -221,7 +241,7 @@ void values()
   Brain.Screen.printAt(210, 50, "Rot: %.1f deg      ", getRotationDeg());
   Brain.Screen.printAt(210, 70, "Enc: L:%.1f R:%.1f    ", getLeftReading(), getRightReading());
   Brain.Screen.printAt(210, 90, "Dis: %.7f", getTotalDistance());
-  Brain.Screen.printAt(210,110, "Rot: %.2f deg      ", encoderL.rotation(deg));
+  //Brain.Screen.printAt(210,110, "Rot: %.2f deg      ", encoderL.rotation(deg));
 
 
   //Brain.Screen.printAt(210, 130, "isStopped: %d   ", isStopped());
@@ -244,12 +264,13 @@ int main() {
   // Run the pre-autonomous function.
   pre_auton();
 
+
   //controllerPrim.ButtonDown.pressed(toggleopneumatic);
 
   // Prevent main from exiting with an infinite loop.
   // A lot of asyncronous tasks separate from the auton and driver task occur here
 
-  task c(catapultPID); // control the cata's PID separate from autonomous task
+  //task c(catapultPID); // control the cata's PID separate from autonomous task
 
 
   while (true) {
