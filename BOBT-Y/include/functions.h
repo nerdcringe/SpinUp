@@ -36,32 +36,11 @@ void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs); // specify 
 void gyroTurn(double targetAngle, int maxSpeed); // fake PID turn
 
 // PID
+void forwardPID(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
+void turnPID(double targetDeg, double maxSpeed, int timeoutMillis=-1); // Move according to PID. Use for auton
+
+
+//void forwardPIDIncr(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
 //double fwdPIDCycle(double targetDist, double maxSpeed); // Get speed from one cycle of PID
 //double turnPIDCycle(double targetDegree, double maxSpeed); // Get speed from one cycle of PID
-void forwardPID(float targetInches, float maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
-//void forwardPIDIncr(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
-void turnPID(float targetDeg, float maxSpeed, int timeoutMillis=-1); // Move according to PID. Use for auton
-
-int driveStraight();
-
-// CATAPULT
-/*int catapultPID(); // does cata PID in separate task from auton
-int catapultFire(); // use in auton task to fire the cata. blocks code so call in separate task for driver
-void catapultFireAsync(); // driver
-*/
-
-int catapultReset();
-void catapultResetDriver();
-extern bool resettingCata;
-
-void roller(double distance, double speed);
-void setIntake(double speed);
-
-
-extern const bool pto_6m_val;
-extern const bool pto_8m_val;
-// PNEUMATICS
-void pto6();
-void pto8();
-void toggleLock();
-void manspread();
+//int driveStraight();

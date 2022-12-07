@@ -20,16 +20,15 @@ int hello1 = 0;
 
 // real bot motors
 
-
-motor L1BASE(PORT15);
-motor L2BASE(PORT17, true);
+motor L1BASE(PORT15, true);
+motor L2BASE(PORT17);
 motor L3BASE(PORT14, true);
 
-motor R1BASE(PORT19, true);
-motor R2BASE(PORT13);
-motor R3BASE(PORT20);
+motor R1BASE(PORT16);
+motor R2BASE(PORT13, true);
+motor R3BASE(PORT4);
 
-motor INTAKE(PORT5);
+motor INTAKE(PORT9);
 motor XBOW(PORT6, true);
 
 
@@ -53,7 +52,7 @@ motor XBOW(PORT6, true);
     Old sensors still use three-wire ports like on the old system.
 */
 triport Triport(PORT22); // Get reference for 3-wire ports on brain (arbitrarily called PORT22 but PORT22 doesn't really exist)
-triport TriportExt(PORT9); // Get reference for 3 wire extender ports
+triport TriportExt(PORT1); // Get reference for 3 wire extender ports
 
 // PNEUMATICS
 digital_out LOCK(Triport.A);
@@ -61,13 +60,12 @@ digital_out PTO(Triport.E); // power take off. Switches between 8 motor base and
 digital_out ENDGAME(Triport.E);
 
 // SENSORS
-inertial INERTIAL(PORT16);
-//rotation CATAPOT(PORT12); // catapult rotation sensor
+inertial INERTIAL(PORT11);
+//rotation CATAPOT(PORT3); // catapult rotation sensor
 
 limit CATALIMIT(Triport.D);
-
-encoder encoderL(TriportExt.G); // left tracking wheel
-encoder encoderR(TriportExt.H); // right tracking wheel
+// encoder encoderL(TriportExt.G); // left tracking wheel
+// encoder encoderR(TriportExt.H); // right tracking wheel
 
 // CONTROLLER
 controller controllerPrim(controllerType::primary);
@@ -79,13 +77,11 @@ controller controllerPrim(controllerType::primary);
  */
 void vexcodeInit(void) {
   // Nothing to initialize
-  pto6();
+
 }
 
-void newFunction()
-{
+void newFunction() {
 }
-
 
 
 
