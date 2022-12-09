@@ -63,7 +63,6 @@ void resetTotalDistance() {
 }
 
 
-
 // Obtain the current inertial sensor rotation relative to the starting rotation
 double getRotationDeg() {
   return -INERTIAL.rotation(deg); // Important that this is negative
@@ -77,7 +76,6 @@ double getRotationDeg() {
 double getRotationRad() {
   return getRotationDeg() * toRadians;
 }
-
 
 
 // BASIC MOVEMENT ////////////////////////////
@@ -304,18 +302,24 @@ void gyroTurn(double targetAngle, int maxSpeed) {
 double lastGraphX = 0;
 double lastGraphY = 0;
 // Display the graph of a variable over time
-void graph(double value) {
+void graph(double value, color graphColor=color::black) {
   double x = timer::system()/30;
-  double y = value * 50;
+  double y = (value) * 8;
+  // scale height so it is visible but also fits on the screen
+
 
   // draw y = 0 line
-  Brain.Screen.setPenWidth(3);
+  Brain.Screen.setPenWidth(2);
   Brain.Screen.setPenColor(color(255, 255, 255));
   Brain.Screen.drawLine(0, 136, 480, 136);
 
   // Draw data
-  Brain.Screen.drawLine(lastGraphX, -lastGraphY + 136, x, -y + 136);
+  Brain.Screen.setPenWidth(0);
+  Brain.Screen.setFillColor(graphColor);
+  //Brain.Screen.drawLine(lastGraphX, -lastGraphY + 136, x, -y + 136);
+  Brain.Screen.drawCircle(x, -lastGraphY + 136, 1);
   
+  Brain.Screen.setPenColor(color(255, 255, 255));
   lastGraphX = x;
   lastGraphY = y;
 }
@@ -399,9 +403,22 @@ void forwardPID(double targetInches, double maxSpeed, int msTimeout) {
 
 void turnPID(double targetDeg, double maxSpeed, int msTimeout) {
   // TUNE THESE
-  double Kp = 0.3;
+  /*double Kp = 0.3;
   double Ki = 0.000;
-  double Kd = 0.3;
+  double Kd = 0.1;*/
+  // OK
+  double Kp = 0.54;
+  double Ki = 0.000;
+  double Kd = 0.2325;
+  
+  /* // wikipedia method
+  double Kp = 0.9;
+  double Ki = 0.000;
+  double Kd = 0.2;*/
+  // CHANGE UP WORLDS
+  /*float Kp =  0.5105;   //getting to target
+    float Ki =  0.001; // increases speed (builds up over time) before: 0.008
+    float Kd =  0.02;    //slow down at end*/
 
   double errorThreshold = 0.75; // Only exit loop when error is less than this
   double derTheshold = 0.1; // Only exit loop when derivative is less than this
@@ -439,6 +456,12 @@ void turnPID(double targetDeg, double maxSpeed, int msTimeout) {
     Brain.Screen.printAt(210, 170, "P: %.2f, I: %.2f, D: %.2f", (Kp * error), (Ki * integral), (Kd * derivative));
     Brain.Screen.printAt(210, 190, "Speed: %.2f, Error: %.2f", speed, error);
     vex::task::sleep(10);
+    //graph(L1BASE.velocity(pct));
+    /*graph(error, color::red);
+    graph(integral, color::white);
+    graph(derivative, color::blue);
+    graph(speed);*/
+    
 
     // Exit loop if within certain distance AND slow enough to not overshoot
     if (fabs(error) < errorThreshold && fabs(derivative) <= derTheshold) { continueLoop = false; }

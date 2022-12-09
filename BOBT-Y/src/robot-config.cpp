@@ -56,14 +56,14 @@ triport TriportExt(PORT1); // Get reference for 3 wire extender ports
 
 // PNEUMATICS
 digital_out LOCK(Triport.A);
-digital_out PTO(Triport.E); // power take off. Switches between 8 motor base and 6 motor + intake/roller + catapult
-digital_out ENDGAME(Triport.E);
+digital_out PTO(Triport.H); // power take off. Switches between 8 motor base and 6 motor + intake/roller + catapult
+digital_out ENDGAME(Triport.B);
 
 // SENSORS
 inertial INERTIAL(PORT11);
 //rotation CATAPOT(PORT3); // catapult rotation sensor
 
-limit CATALIMIT(Triport.D);
+bumper CATALIMIT(Triport.D);
 // encoder encoderL(TriportExt.G); // left tracking wheel
 // encoder encoderR(TriportExt.H); // right tracking wheel
 

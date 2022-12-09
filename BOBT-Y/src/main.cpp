@@ -37,8 +37,18 @@ void resetSling() {
   XBOW.spin(fwd, 100, velocityUnits::pct);
   // spin until limit is pressing or reset is canceled
   waitUntil(CATALIMIT.pressing() || !resettingSling);
+  task::sleep(200);
+  lockOn();
+  task::sleep(150);
   XBOW.stop(brakeType::coast);
+  
+  XBOW.rotateTo(0, deg, 100, velocityUnits::pct);
   resettingSling = false;
+}
+
+int resetSlingAsync() {
+  resetSling();
+  return 0;
 }
 
 void shootSling(){
@@ -103,230 +113,33 @@ void rollerAuton(){
   resettingSling = false; // stop resetting cata if manually pressed
 
 
-  setBase(5); // move into rollers
-  task::sleep(500);//450
-  holdBase();
+  forwardInchesTimed(-3.5, 15, 750);
+  forwardInchesTimed(3, 25, 3000);
 
-  //roller(275,100);
- 
- // back up from roller and turn towards center of field
-  forwardPID(-1.5, 35);
+  
 }
 
-void leftFull(){
-  // PID test
-  //forwardPID(24, 35);
-
-  
-  //INERTIAL.setRotation(0, deg);
-  
-  //turnPID(89.875, 30);
-  //turnPID(-45, 28);
-
-  //forwardInchesTimed(1.5, 5, 750);
-  //pto6();
-
-
+void rightHalf() {
   // have to reset these manually before every auton
   resetTotalDistance();
   resettingSling = false; // stop resetting cata if manually pressed
 
-
-  setBase(5); // move into rollers
-  task::sleep(300);//450
-  holdBase();
-
-  //roller(275,100);
-  //setIntake(50);
-
-          //wait(200, msec);
-          //setIntake(0);
-         //stopBase();
-          
-
- // back up from roller and turn towards center of field
-  forwardPID(-2.8, 35);
-  turnPID(-45.6, 25);
-
-  setIntake(100);
- //forwardPIDIncr(-30, 70); // go to center
-  setIntake(0);
-  task::sleep(50);
   
-  //gyroTurn(-45, 20);
-  //setIntake(100);
-  //forwardPID(-30, 55); // go to center
-  turnPID(44.15, 22, 1750); // turn to shoot
-  forwardInches(-0.9, 16);
-  setIntake(100);
-  task::sleep(500);
-  setIntake(0);
-  task::sleep(100);
-  
-  R2BASE.spin(reverse, 100, pct); // shoot
-  wait(600, msec);
-  //task pog(catapultReset);
-
-  setIntake(100);
-  task::sleep(750);
-  setIntake(0);
-  //task::sleep(100);
-  /* // shoot twice
-  R2BASE.spin(reverse, 100, pct); // shoot
-  wait(800, msec);
-  task pog(catapultReset);
-  wait(250, msec);*/
-
-  forwardInches(0.75, 22);
-
-  //turnPID(-44, 28);
-  gyroTurn(-46.5, 25);
-  forwardInches(-28, 100);
-  
-  gyroTurn(91, 30);
-  //turnPID(90, 30);
-
-  forwardInchesTimed(4.25, 50, 2500); // move into rollers
-  setBase(5); // move into rollers
-  task::sleep(500);
-  holdBase();
-
-  //roller(350, 100);
-  stopBase();
-  
-}
-
-void rightHalfGood() {
-  resetTotalDistance();  
-  //pto6();
-
-
-  //forwardInchesTimed(1.5, 5, 750);
-  setBase(5); // move into rollers
-  task::sleep(300);
-  holdBase();
-
-  //roller(275,100);
-  //setIntake(50);
-
-          //wait(200, msec);
-          //setIntake(0);
-         //stopBase();
-        
- // back up from roller and turn towards center of field
-  //forwardPID(-2.8, 35);
-  forwardPID(-2.8, 20);
-  turnPID(45.6, 25);
-
-  setIntake(100);
-  //forwardPIDIncr(-30, 70); // go to center
-  setIntake(0);
-  task::sleep(50);
-  
-  //gyroTurn(-45, 20);
-  //setIntake(100);
-  //forwardPID(-30, 55); // go to center
-  //turnPID(-44.15, 22, 1750); // turn to shoot
-  turnPID(-43.75, 22, 1750); // turn to shoot
-  forwardInches(-0.8, 13);
-  setIntake(100);
-  task::sleep(500);
-  setIntake(0);
-  task::sleep(100);
-  
-  R2BASE.spin(reverse, 100, pct); // shoot
-  wait(600, msec);
-  //task pog(catapultReset);
-
-  task::sleep(1000);
-  // pick up to shoot again
-  setIntake(100);
-  forwardInches(6, 17);
-  forwardInches(-6, 17);
-  
-  gyroTurn(-75, 22); // turn to other disk
-  
-  setIntake(100);
-  forwardInches(8, 17);
-  forwardInches(-7, 17);
-  
-  //turnPID(-44, 22, 2500); // turn to shoot
-  turnPID(-44, 22, 2500); // turn to shoot
-  setIntake(0);
-  forwardInches(-0.7, 12);
-
-  R2BASE.spin(reverse, 100, pct); // shoot
-  wait(600, msec);
-  //task m(catapultReset);
-
-  stopBase();
-
-
-}
-
-void setonSkills(){
-  resetTotalDistance();  
-  //pto6();
-
-  //forwardInchesTimed(1.5, 5, 750);
-  setBase(5); // move into rollers
-  task::sleep(300);
-  holdBase();
-
-  //roller(450,100);
-  //setIntake(50);
-
-          //wait(200, msec);
-          //setIntake(0);
-         //stopBase();
-        
- // back up from roller and turn towards center of field
-  //forwardPID(-2.8, 35);
-  forwardInches(-1.5, 20);
-  turnPID(138, 25);
-  setIntake(100);
-  forwardInches(6, 20);
-  
-  gyroTurn(145, 20);
-  forwardInches(6, 20);
-  turnPID(90, 26);
-  //setIntake(0);
-
- // move into rollers
- 
-  setIntake(0);
-  forwardInchesTimed(2.25, 15, 1500);
-  setBase(5);
-  task::sleep(275);
-  holdBase();
-
-  //roller(475, 100);
-
-  forwardInches(-1.5, 15);
-  turnPID(-2.3, 27);
-  setIntake(100);
-  forwardPID(-26, 45);
-  
-  gyroTurn(0.5, 23);
-  R2BASE.spin(reverse, 100, pct); // shootol
-  wait(600, msec);
-  //task m(catapultReset);
-  
-  wait(100, msec);
-
-  forwardInches(4, 20);
-  
-  turnPID(-60, 23);
-  forwardPID(17, 30);
-  setIntake(100);
-  turnPID(-147, 27);
+  forwardInchesTimed(-3.5, 15, 750);
+  forwardInchesTimed(3, 25, 3000);
+  task b(resetSlingAsync);
+  turnPID(46, 25);
+  forwardPID(32.5, 50);
+  turnPID(-45, 25);
+  shootSling();
 
 }
 
 void pidTest(){
   //forwardPID(30, 40); // aight
-
-  turnPID(-90, 40);
+  //wait(3, sec);
+  //turnPID(45, 20);
+  turnPID(90, 25);
 
 }
 
@@ -339,7 +152,7 @@ void usercontrol(void) {
   controllerPrim.ButtonB.pressed(toggleLock);
   //controllerPrim.ButtonR1.pressed(catapultResetDriver); // fire in a separate task
   controllerPrim.ButtonX.pressed(manspread); // deploy endgame mech
-  //controllerPrim.ButtonLeft.pressed(resetSling);
+  controllerPrim.ButtonLeft.pressed(resetSling);
   //controllerPrim.ButtonDown.pressed(shootSling);
 
   L1BASE.setStopping(brakeType::coast);
@@ -394,12 +207,15 @@ void usercontrol(void) {
 void values() {
   Brain.Screen.setPenColor(white); // Set text color to white
 
+  Brain.Screen.printAt(0, 20, "name: %d   ", getRotationDeg());
+
   Brain.Screen.printAt(210, 30, "Rot: %.2f deg       ", getRotationDeg());
   Brain.Screen.printAt(210, 50, "Dist: %.2f         ", getTotalDistance());
   Brain.Screen.printAt(210, 70, "%d  %d   ", (int)L1BASE.velocity(pct), (int)R1BASE.velocity(pct));
   Brain.Screen.printAt(210, 90, "%d  %d   ", (int)L2BASE.velocity(pct), (int)R2BASE.velocity(pct));
   Brain.Screen.printAt(210, 110,"%d  %d   ", (int)L3BASE.velocity(pct), (int)R3BASE.velocity(pct));
   Brain.Screen.printAt(210, 130,"sling dist %d    ", (int)XBOW.rotation(deg));
+  Brain.Screen.printAt(300, 90,"LOCK %d    ", (int)LOCK.value());
 }
 
 
@@ -408,7 +224,7 @@ void values() {
 //
 int main() {
   // Set up callbacks for autonomous and driver control periods.
-  Competition.autonomous(pidTest);
+  Competition.autonomous(rightHalf);
   Competition.drivercontrol(usercontrol);
   // Run the pre-autonomous function.
   pre_auton();
