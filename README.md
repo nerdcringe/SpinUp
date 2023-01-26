@@ -32,7 +32,7 @@ General functions for movement, sensors, and pneumatics
 
 - Parameters: double *angle* (degrees), double *maxSpeed* (percent) , int *timeoutMillis* (milliseconds)
 
-- Description: Turn to a certain angle relative to the starting angle of the robot based on a PID algorithm. Limit the output speed of the PID to a certain maximum speed.  Exit if timeoutMillis is specified and the timer runs out.
+- Description: Turn to a certain angle relative to the starting angle. The speed is based on a PID algorithm to limit overshoot. Limit the output speed of the PID to a certain maximum speed.  Exit if timeoutMillis is specified and the timer runs out.
 
  
 
@@ -40,7 +40,7 @@ General functions for movement, sensors, and pneumatics
 
 - Parameters: double *distance* (inches), double *maxSpeed* (percent), int *timeoutMillis* (milliseconds) 
 
-- Description: Move forward/backwards for a certain distance at a speed that ramps up, maxes out and slows back down at the end. Use this for smaller distances that PID cannot handle well. Exit after a certain time (timeoutMs). If robot gets stuck trying to move into a wall, then the timeout should let it move on to the next function after some time.
+- Description: Move forward/backwards for a certain number of inches. The speed ramps up, maxes out and slows back down at the end. Use this for smaller distances that PID cannot handle well. Exit after a certain time (timeoutMs). If robot gets stuck trying to move into a wall, then the timeout should let it move on to the next function after some time.
 
 
 #### fwdConst
@@ -153,8 +153,7 @@ I usually start with Kp and make sure it's enough to get to the target. Then, in
 last_error = 0;
 integral = 0;
 
-while (running)
-{
+while (running) {
   error = target – current; // Obtain current error based on target value minus actual value
   
   integral = integral + error; // Accumulate the error
@@ -215,7 +214,7 @@ A document by [The Pilons](http://thepilons.ca/wp-content/uploads/2018/10/Tracki
 
 
 ### How to use
-Moving to a point first involves a command to set the target position. Afterwards, you may move to or turn to that target point. Sometimes you need to lower the forward speed or raise the turning speed if the robot orbits around the target without stopping.
+Moving to a point first involves a command to set the target (x, y) position. Afterwards, you may move to or turn to that target point. To move to a target point, the right and left base motors move forward at different speeds. Sometimes you need to lower the forward speed or raise the turning speed if the robot orbits around the target without stopping.
  
 ```
 setTarget(10, 10); // Set the target position to x = 10 inches, y = 10 inches
@@ -236,30 +235,22 @@ passToTargetRev(25, 5); // Back up to (0, 0) at 25% backward speed and 5% turnin
 ```
 
 ## Multitasking In Autonomous
-Multitasking involves invoking a function while another function is running. To call a function after moving some distance while moving, create the following function 
+Multitasking involves invoking a function while another function is running. Tasks can run a separate sequence of functions without blocking the main autonomous sequence.
+,
 
+Here is an example of moving forward and starting the intake 1 second after the movement starts.
 ```
-int startIntake10() 
-{
-  while (totalDistance < 10) // Distance (inches) can be anything 
-  {
-    // Wait inside the while loop until 10 inches is passed
-    task::sleep(10);
-  }
-  
+int startIntakeDelay() {
+  task::sleep(1000); // Wait 1 second
   setIntake(100); // This can be anything 
 }
- ```
 
-In autonomous, reset the distance tracker and start the task.
-
-```
-...
-resetTotalDistance()
-task a(startIntake10); // Setup the task to start the intake after 10 inches 
-
-forwardPID(20, 25); // Move forward 20 inches (intake will start after 10 inches)
-... 
+void autonomous() {
+  ...
+  task a(startIntakeDelay); // Run the task to start the intake after a delay 
+  forwardPID(20, 25); // Move forward 20 inches (intake will start after 1 second)
+  ... 
+}
 ```
  
 
@@ -270,8 +261,7 @@ forwardPID(20, 25); // Move forward 20 inches (intake will start after 10 inches
 ```
 // Create function for toggling pneumatic on/off 
 
-void togglePneumatic() 
-{ 
+void togglePneumatic() { 
   pneumatic.set(!pneumatic.value());
 } 
 ```
@@ -280,8 +270,7 @@ Scroll down to int main() at the bottom of the file. Add a callback for a  butto
 This means the button assigned to call the function anytime it is pressed in the future.
 
 ```
-int main() 
-{
+int main() {
   ...
   // Create a callback for toggling pneumatic when A button pressed on primary controller
   ControllerPrim.ButtonA.pressed(togglePneumatic); 
