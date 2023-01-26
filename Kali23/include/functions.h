@@ -26,20 +26,30 @@ double getRotationRad();
 // BASIC MOVEMENT
 void setLeftBase(double speed);
 void setRightBase(double speed);
-
-
 void setBase(double speed);
 void stopBase();
 void holdBase();
+void fwdConst(double amount, double speed, int timeout=999999);
+void revConst(double amount, double speed, int timeout=999999);
+void turnR(double amount, double speed);
+void turnL(double amount, double speed);
+void fwdLerp(double targetInches, double startSpeed, double endSpeed);
+void revLerp(double inches, double startSpeed, double endSpeed);
+void turnLerp(double targetAngleRelative, double startSpeed, double endSpeed);
+
+// FAKE PID
 void forwardInches(double inches, int maxSpeed); // fake PID. speeds up and slows down
 void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs); // specify time for PID if stuck against wall
 void gyroTurn(double targetAngle, int maxSpeed); // fake PID turn
+void gyroTurnSlow(double targetAngle, int maxSpeed); // fake PID turn
 
 // PID
 void forwardPID(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
 void turnPID(double targetDeg, double maxSpeed, int timeoutMillis=-1); // Move according to PID. Use for auton
+void turnPIDFast(double targetDeg, double maxSpeed, int timeoutMillis=-1); // Move according to PID. Use for auton
 
 void forwardPIDGradual(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
+void forwardPIDGradual2(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
 void turnPIDDist(double targetInches, double maxSpeed, int msTimeout=-1);
 // void forwardPIDIncr(double targetInches, double maxSpeed, int timeoutMillis=-1); // Move accorrding to PID. Use for auton
 // double fwdPIDCycle(double targetDist, double maxSpeed); // Get speed from one cycle of PID

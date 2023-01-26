@@ -54,12 +54,13 @@ triport Triport(PORT22); // Get reference for 3-wire ports on brain (arbitrarily
 triport TriportExt(PORT1); // Get reference for 3 wire extender ports
 
 // PNEUMATICS
-digital_out LOCK(Triport.A);
-digital_out PTO(Triport.H); // power take off. Switches between 8 motor base and 6 motor + intake/roller + catapult
-digital_out ENDGAME(Triport.B);
+digital_out LOCK(Triport.B);
+digital_out ENDGAME(Triport.A);
+digital_out PTO(Triport.E); // power take off for rubber bands
+digital_out MUNCHER(Triport.F);
 
 // SENSORS
-inertial INERTIAL(PORT11);
+inertial INERTIAL(PORT21);
 //rotation CATAPOT(PORT3); // catapult rotation sensor
 
 bumper CATALIMIT(Triport.D);

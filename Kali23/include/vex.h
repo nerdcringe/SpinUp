@@ -553,3 +553,170 @@
 //   // forwardInchesTimed(-3.5, 15, 750);
 //   // forwardInchesTimed(2, 30, 2000);
 // }
+
+
+// void leftHalf(){
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+  
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+
+//   forwardInches(1.5, 20);
+//   forwardInches(1, 10);
+
+//   turnPID(-45.5, 25);
+//   //forwardPID(70,50);
+//   task::sleep(50);
+//   forwardPIDGradual(70,57);
+//   turnPID(45,23); // turn to shoot
+//   task::sleep(50);
+
+//   lockOff();
+//   task::sleep(250);
+// }
+
+// void leftFull(){
+  
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+  
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+
+//   forwardInchesTimed(-3.5, 28, 350);
+//   forwardInchesTimed(2.25, 30, 500);
+
+//   forwardInches(1.5, 20);
+//   forwardInches(1, 10);
+
+//   turnPID(-46, 25);
+//   //forwardPID(70,50);
+//   task::sleep(50);
+//   forwardPIDGradual(70,57);
+//   turnPID(45,23); // turn to shoot
+//   task::sleep(50);
+//   /*task v(shootSlingAsync);
+//   task::sleep(1800);*/
+  
+//   lockOff();
+//   task::sleep(250);
+//   turnPIDDist(-8, 22); // inertial sensor angle doesnt work for some reason so have to turn by distance
+//   //turnPID(-44.3, 24);
+
+//   task::sleep(100);
+//   forwardPIDGradual(68.5,57);
+  
+//   //task::sleep(100);
+//   //turnPID(90, 25);
+//   turnPIDDist(12.25, 22); // inertial sensor angle doesnt work for some reason so have to turn by distance
+//   //turnPIDDist(-8, 22);
+
+//   forwardInchesTimed(-10, 32, 450);
+  
+//   forwardInchesTimed(2.5, 30, 1000);
+
+//   forwardInchesTimed(-3.5, 32, 750);
+//   forwardInchesTimed(2.5, 30, 1000);
+  
+//   forwardInchesTimed(-3.5, 32, 750);
+//   forwardInchesTimed(2.5, 30, 1000);
+
+//   forwardInchesTimed(-3.5, 32, 750);
+//   forwardInchesTimed(2.5, 30, 1000);
+
+//   //forwardInchesTimed(-3.5, 15, 750);
+//   //forwardInchesTimed(2, 30, 2000);
+  
+//   //forwardInchesTimed(-3.5, 15, 750);
+//   //forwardInchesTimed(2, 30, 2000);
+
+
+// }
+
+
+
+// void leftRoller() {
+//   forwardInchesTimed(-3,45, 750);
+//   forwardInchesTimed(2, 30, 1000);
+  
+//   task::sleep(500);
+//   forwardInchesTimed(-3, 45, 750);
+//   forwardInchesTimed(3, 30, 1000);
+//   holdBase();
+//   task::sleep(500);
+  
+//   forwardInchesTimed(-6, 45, 750);
+//   forwardInchesTimed(3, 25, 1000);
+//   task::sleep(500);
+//   holdBase();
+  
+//   forwardInchesTimed(-6, 45, 750);
+//   forwardInchesTimed(3, 25, 1000);
+//   task::sleep(500);
+//   holdBase();
+
+//   forwardInchesTimed(-6, 45, 750);
+//   forwardInchesTimed(3, 25, 1000);
+// }
+
+// void rollerRight() {
+//   forwardPID(18, 30);
+//   turnPID(-90, 25);
+//   forwardInchesTimed(7, 30, 2000);
+
+// }
+
+// void rightHalf() {
+  
+//   forwardPID(-25, 30);
+//   gyroTurn(-88.5, 24);
+//   forwardInchesTimed(-13, 32, 750);
+  
+//   forwardInchesTimed(2.5, 30, 1000);
+
+//   forwardInchesTimed(-3.5, 32, 750);
+//   forwardInchesTimed(2.5, 30, 1000);
+  
+  
+//   forwardInchesTimed(-3.5, 32, 750);
+//   forwardInchesTimed(2.5, 30, 1000);
+
+//   forwardInchesTimed(-3.5, 32, 750);
+//   forwardInchesTimed(2.5, 30, 1000);
+
+//   /*
+//   forwardInchesTimed(-3.5, 15, 750);
+//   forwardInchesTimed(3, 20, 3000);
+//   //task b(shootSling());
+//   turnPID(45, 25); // turn to midfield
+//   task::sleep(400);
+//   forwardPID(32.5, 40);
+//   turnPID(-45, 25); // turn to goal
+//   task::sleep(400);
+//   shootSling();*/
+
+// }
+
+// void rightDiscs(){
+//   forwardInches(10, 12);
+
+//   turnPID(44.5, 25);
+//   //forwardPID(70,50);
+//   task::sleep(50);
+//   forwardPIDGradual(52,57);
+//   turnPID(-45,23); // turn to shoot
+//   task::sleep(250);
+
+//   lockOff();
+//   task::sleep(500);
+// }

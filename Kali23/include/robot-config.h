@@ -40,6 +40,7 @@ extern motor XBOW;
 extern digital_out LOCK;
 extern digital_out PTO;
 extern digital_out ENDGAME;
+extern digital_out MUNCHER;
 ////////////////////////////////////////////
 
 // SENSORS /////////////////////////////////////

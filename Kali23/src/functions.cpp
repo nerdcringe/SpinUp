@@ -118,6 +118,7 @@ void holdBase() {
 }
 
 
+/*
 void forwardConst(double inches, double speed) {
     resetTotalDistance();
     task::sleep(15);
@@ -129,7 +130,109 @@ void forwardConst(double inches, double speed) {
     }
 
     stopBase();
+}*/
+
+
+
+void fwdConst(double amount, double speed, int timeout) {
+
+  L1BASE.setTimeout(timeout, msec);
+  L2BASE.setTimeout(timeout, msec);
+  L3BASE.setTimeout(timeout, msec);
+  R1BASE.setTimeout(timeout, msec);
+  R2BASE.setTimeout(timeout, msec);
+  R3BASE.setTimeout(timeout, msec);
+
+  L1BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  L2BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  L3BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  R1BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  R2BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  R3BASE.rotateFor(amount, deg, speed, velocityUnits::pct);
 }
+
+
+void revConst(double amount, double speed, int timeout) {
+
+  L1BASE.setTimeout(timeout, msec);
+  L2BASE.setTimeout(timeout, msec);
+  L3BASE.setTimeout(timeout, msec);
+  R1BASE.setTimeout(timeout, msec);
+  R2BASE.setTimeout(timeout, msec);
+  R3BASE.setTimeout(timeout, msec);
+
+  L1BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  L2BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  L3BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  R1BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  R2BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  R3BASE.rotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+}
+
+// LEFT (CCW) IS POSITIVE
+void turnR(double amount, double speed) {
+  L1BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  L2BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  L3BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  R1BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  R2BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  R3BASE.rotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+}
+
+void turnL(double amount, double speed) {
+  R1BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  R2BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  R3BASE.startRotateFor(amount, deg, speed, velocityUnits::pct);
+  L1BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  L2BASE.startRotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+  L3BASE.rotateFor(reverse, amount, deg, speed, velocityUnits::pct);
+}
+
+
+void fwdLerp(double targetInches, double startSpeed, double endSpeed) {
+  resetTotalDistance();
+
+  while(true) {
+    double t = getTotalDistance()/targetInches; // ratio of distance travelled (starts at 0 and ends at 1)
+    double speed = (startSpeed * t) + (endSpeed * (1-t)); // Gradually transition between startSpeed and endSpeed
+
+    if (t >= 1) {
+      break;
+    }
+    setLeftBase(speed);
+    setRightBase(speed);
+  }
+  stopBase();
+}
+
+// make everything negative to go backward
+void revLerp(double inches, double startSpeed, double endSpeed) {
+  fwdLerp(-inches, -startSpeed, -endSpeed);
+}
+
+
+
+void turnLerp(double targetAngleRelative, double startSpeed, double endSpeed) {
+  double targetAngleAbsolute = getRotationDeg() + targetAngleRelative;
+  double initialError = targetAngleAbsolute - getRotationDeg();
+  double error = initialError;
+
+  while(true) {
+    double t = error/initialError; // ratio of distance travelled (starts at 1 and ends at 0)
+    double speed = (startSpeed * (1-t)) + (endSpeed * t); // Gradually transition between startSpeed and endSpeed
+
+    if (t <= 0) {
+      break;
+    }
+    setLeftBase(-speed);
+    setRightBase(speed);
+  }
+  stopBase();
+}
+
+
+/*void lerpTurn(double relativeAngle) {
+}*/
 
 
 // Speed up and slow down gradually
@@ -144,10 +247,10 @@ void forwardInches(double inches, int maxSpeed) {
   // Acceleration rates: changes rate of speed up/slow down
   // Gradually speeds up for the first half, slows down for second half
   const double accelRate = 100;    // Speed multiplier while speeding up (slope at start).
-  const double deaccelRate = 4;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
+  const double deaccelRate = 6;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
 
   double targetDistance = inches;/*inchesToTicks(inches)*/;  // How far the robot should travel
-  double targetRange = .25;                         // Distance from the desired distance the robot has to be to stop.
+  double targetRange = .3;                         // Distance from the desired distance the robot has to be to stop.
   double error = targetDistance;                  // Distance from the desired distance
   double speed;                                   // Actual speed value of the motors
 
@@ -173,6 +276,9 @@ void forwardInches(double inches, int maxSpeed) {
     if (error < 0) {
       speed *= -1;
     }
+
+    //if (signbit(speed) != signbit(maxSpeed)) {break;}
+
     setLeftBase(speed);
     setRightBase(speed);
 
@@ -199,10 +305,10 @@ void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs) {
   // Acceleration rates: changes rate of speed up/slow down
   // Gradually speeds up for the first half, slows down for second half
   const double accelRate = 100;    // Speed multiplier while speeding up (slope at start).
-  const double deaccelRate = 4;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
+  const double deaccelRate = 4.5;  // Speed multiplier while slowing down (slope at end). Starts slowing down later when higher
 
   double targetDistance = inches;  // How far the robot should travel
-  double targetRange = 0.25;                         // Distance from the desired distance the robot has to be to stop.
+  double targetRange = 0.3;                         // Distance from the desired distance the robot has to be to stop.
   double error = targetDistance;                  // Distance from the desired distance
   double speed;                                   // Actual speed value of the motors
 
@@ -231,12 +337,17 @@ void forwardInchesTimed(double inches, int maxSpeed, int maxTimeMs) {
     if (error < 0) {
       speed *= -1;
     }
+
     setLeftBase(speed);
     setRightBase(speed);
     
     Brain.Screen.printAt(210, 150, "Target Dist: %.1f  ", (targetDistance));
     Brain.Screen.printAt(210, 170,"Error:       %.1f     ", error);
     Brain.Screen.printAt(210, 190,"Speed:       %.1f  ", speed);
+
+    if (speed > 0 && inches < 0) {break;}
+    if (speed < 0 && inches > 0) {break;}
+
     task::sleep(10);
   }
 
@@ -256,7 +367,65 @@ void gyroTurn(double targetAngle, int maxSpeed) {
   double error = relativeAngle; // Distance from the desired range
   double progress;              // Degrees the robot has turned already
   double minSpeed = 2; // Lowest speed the motors will go; Turning is generally more precise when lower, but slower.
-  double deaccelRate = 1.0;//3; // 2.4
+  double deaccelRate = 1.35;//3; // 2.4
+
+  double speed; // Actual speed value of the motors
+
+  maxSpeed = keepInRange(maxSpeed, 0, 100);
+
+  while (fabs(error) > targetRange) {
+    progress = getRotationDeg() - initialAngle;
+    error = progress - relativeAngle;
+
+    // Speed starts at maximum and approaches minimum as the gyro value
+    // approaches the desired angle. It deccelerates for precision.
+    speed = fabs(error / relativeAngle); // Speed is absolute valued so that it can be kept in range properly
+    speed *= maxSpeed * deaccelRate;
+    speed = keepInRange(speed, minSpeed, maxSpeed);
+    
+    // Keep speed either above maxSpeed or below negative maxSpeed so it's fast enough to overcome friction
+
+    
+    //if (signbit(speed) != signbit(relativeAngle)) {break;}
+
+    if (error < 0) {
+      setLeftBase(-speed);
+      setRightBase(speed);
+    } else {
+      setLeftBase(speed);
+      setRightBase(-speed);
+    }
+
+    controllerPrim.Screen.clearScreen();
+    task::sleep(10);
+    controllerPrim.Screen.setCursor(1, 1);
+    task::sleep(10);
+    controllerPrim.Screen.print("%f", getRotationDeg());
+
+    Brain.Screen.printAt(210, 150, "Desired angle: %.1f, Relative angle: %.1f", degrees, relativeAngle);
+    Brain.Screen.printAt(210, 170, "Speed: %.1f, Error: %.1f", speed, error);
+    Brain.Screen.printAt(210, 190, "Gyro: %.1f", getRotationDeg());
+    task::sleep(10);
+  }
+
+  stopBase();
+  task::sleep(15);
+}
+
+
+
+// Absolute turn in degrees
+void gyroTurnSlow(double targetAngle, int maxSpeed) {
+  double initialAngle = getRotationDeg();
+  //          <---------------------------|------------------->
+  // Negative Degrees (Counterclockwise),    Positive Degrees (Clockwise)
+  double relativeAngle = targetAngle - getRotationDeg();
+
+  double targetRange = 0.6; // Distance from the desired angle that is allowed
+  double error = relativeAngle; // Distance from the desired range
+  double progress;              // Degrees the robot has turned already
+  double minSpeed = 2; // Lowest speed the motors will go; Turning is generally more precise when lower, but slower.
+  double deaccelRate = 0.8;//3; // 2.4
 
   double speed; // Actual speed value of the motors
 
@@ -281,11 +450,11 @@ void gyroTurn(double targetAngle, int maxSpeed) {
       setRightBase(-speed);
     }
 
-    /*controllerPrim.Screen.clearScreen();
+    controllerPrim.Screen.clearScreen();
     task::sleep(10);
     controllerPrim.Screen.setCursor(1, 1);
     task::sleep(10);
-    controllerPrim.Screen.print("%f", getRotation());*/
+    controllerPrim.Screen.print("%f", getRotationDeg());
 
     Brain.Screen.printAt(210, 150, "Desired angle: %.1f, Relative angle: %.1f", degrees, relativeAngle);
     Brain.Screen.printAt(210, 170, "Speed: %.1f, Error: %.1f", speed, error);
@@ -472,6 +641,76 @@ void turnPID(double targetDeg, double maxSpeed, int msTimeout) {
 }
 
 
+void turnPIDFast(double targetDeg, double maxSpeed, int msTimeout) {
+  // TUNE THESE
+  /*double Kp = 0.3;
+  double Ki = 0.000;
+  double Kd = 0.1;*/
+  // OK
+  double Kp = 0.5925;
+  double Ki = 0.000;
+  double Kd = 0.2325;
+  
+  /* // wikipedia method
+  double Kp = 0.9;
+  double Ki = 0.000;
+  double Kd = 0.2;*/
+  // CHANGE UP WORLDS
+  /*float Kp =  0.5105;   //getting to target
+    float Ki =  0.001; // increases speed (builds up over time) before: 0.008
+    float Kd =  0.02;    //slow down at end*/
+
+  double errorThreshold = 0.4; // Only exit loop when error is less than this
+  double derTheshold = 0.25; // Only exit loop when derivative is less than this
+  double minSpeed = 1.5; // stay at least this fast to overcome friction. May be more reliable than using integral
+  double integralPowerLimit = 3 / Ki; // How much speed the integral can contribute
+  double integralActiveZone = 10; // How close to error the integral adds up
+  
+  Brain.resetTimer();
+  double integral;
+  double lastError;
+  bool continueLoop = true;
+
+  while (continueLoop) {
+    // ERROR: DISTANCE FROM TARGET. MOST SPEED COMES FROM HERE
+    double error = targetDeg - getRotationDeg(); // desired - actual
+
+    // INTEGRAL: ACUMULATE SPEED TO OVERCOME FRICTION AT THE END
+    integral = integral + error;
+    if (fabs(error) > integralActiveZone) { integral = 0; } // reset integral if outside range
+    integral = keepInRange(integral, -integralPowerLimit, integralPowerLimit); // keep integral within range
+
+    // DERIVATIVE: SLOW DOWN TOWARDS END
+    double derivative = error - lastError;
+    lastError = error;
+
+    double speed = ((Kp * error) + (Ki * integral) + (Kd * derivative));
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    if (speed > 0 && speed < minSpeed)  { // go at least minspeed forward
+      speed = minSpeed;
+    } else if (speed > -minSpeed && speed < 0) { // go at least minspeed backward
+      speed = -minSpeed;
+    }
+    setLeftBase(-speed);
+    setRightBase(speed);
+    Brain.Screen.printAt(210, 170, "P: %.2f, I: %.2f, D: %.2f", (Kp * error), (Ki * integral), (Kd * derivative));
+    Brain.Screen.printAt(210, 190, "Speed: %.2f, Error: %.2f", speed, error);
+    vex::task::sleep(10);
+    //graph(L1BASE.velocity(pct));
+    /*graph(error, color::red);
+    graph(integral, color::white);
+    graph(derivative, color::blue);
+    graph(speed);*/
+
+    // Exit loop if within certain distance AND slow enough to not overshoot
+    if (fabs(error) < errorThreshold && fabs(derivative) <= derTheshold) { continueLoop = false; }
+    // Exit loop if run out of time. No timeout by default if not specified (set to -1).
+    //if (Brain.timer(vex::timeUnits::msec) > msTimeout && msTimeout != -1) { continueLoop = false; }
+  }
+  stopBase();
+}
+
+
 void turnPIDDist(double targetInches, double maxSpeed, int msTimeout) {
   // TUNE THESE
   double Kp = 9; 
@@ -552,6 +791,64 @@ void forwardPIDGradual(double targetInches, double maxSpeed, int msTimeout) {
 
   while (continueLoop) {
     curMax += 0.75;
+
+    // ERROR: DISTANCE FROM TARGET. MOST SPEED COMES FROM HERE
+    double error = targetInches - getTotalDistance(); // desired - actual
+    // INTEGRAL: ACUMULATE SPEED TO GET FASTER AT END
+    integral = integral + error;
+    if (fabs(error) > integralActiveZone) { integral = 0; } // reset integral if outside range
+    integral = keepInRange(integral, -integralPowerLimit, integralPowerLimit); // keep integral within range
+
+    // DERIVATIVE: SLOW DOWN TOWARDS END
+    double derivative = error - lastError;
+    lastError = error;
+
+    double speed = ((Kp * error) + (Ki * integral) + (Kd * derivative));
+    speed = keepInRange(speed, -curMax, curMax);
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    if (speed > 0 && speed < minSpeed)  { // go at least minspeed forward
+      speed = minSpeed;
+    } else if (speed > -minSpeed && speed < 0) { // go at least minspeed backward
+      speed = -minSpeed;
+    }
+    setLeftBase(speed/* + correctionL*/);
+    setRightBase(speed/* + correctionR*/);
+    Brain.Screen.printAt(210, 170, "P: %.2f, I: %.2f, D: %.2f", (Kp * error), (Ki * integral), (Kd * derivative));
+    Brain.Screen.printAt(210, 190, "Dist: %.2f, Error: %.2f", getTotalDistance(), error);
+    vex::task::sleep(10);
+    //graph(error);
+    // Exit loop if within certain distance AND slow enough to not overshoot
+    if (fabs(error) < errorThreshold && fabs(derivative) <= derTheshold) { continueLoop = false; }
+    // Exit loop if run out of time. No timeout by default if not specified (set to -1).
+    if (Brain.timer(vex::timeUnits::msec) > msTimeout && msTimeout != -1) { continueLoop = false; }
+  }
+  stopBase();
+}
+
+
+void forwardPIDGradual2(double targetInches, double maxSpeed, int msTimeout) {
+  // TUNE THESE
+  double Kp = 9; 
+  double Ki = 0.00;
+  double Kd = 4;
+
+  double errorThreshold = 0.125; // Only exit loop when error is less than this
+  double derTheshold = 0.005; // Only exit loop when derivative is less than this
+  double minSpeed = 1; // stay at least this fast to overcome friction. May be more reliable than using integral
+  double integralPowerLimit = 5 / Ki; // how much speed the integral can contribute
+  double integralActiveZone = 5; // How close to error the integral adds up
+  
+  resetTotalDistance();
+  //resetDriveStraight();
+  Brain.resetTimer();
+  double integral;
+  double lastError;
+  bool continueLoop = true;
+
+  double curMax = 2.5;
+
+  while (continueLoop) {
+    curMax += 0.375;
 
     // ERROR: DISTANCE FROM TARGET. MOST SPEED COMES FROM HERE
     double error = targetInches - getTotalDistance(); // desired - actual
