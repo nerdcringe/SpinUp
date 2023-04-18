@@ -3,11 +3,34 @@
 using namespace vex; // use vex keywords by default
 
 
+void goTime(double numSeconds, double speed) {
+  RBASE.spin(forward, speed, velocityUnits::pct);
+  LBASE.spin(forward, speed, velocityUnits::pct);
+  wait(numSeconds, seconds);
+
+  // There's 3 brake types you can use to get different effects when breaking.
+  // - coast glides to a stop (pretty sure coast is the default braketype if you don't put anything in the parentheses)
+  // - brake stops kinda hard
+  // - hold stops the motors hard
+  LBASE.stop(brakeType::coast);
+  RBASE.stop(brakeType::coast);
+}
+
 void goDistance(double distance, double speed) {
   RBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
   LBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
 }
 
+
+void turnDistanceL(double distance, double speed) {
+  RBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
+  LBASE.rotateFor(-distance, rotationUnits::deg, speed, velocityUnits::pct);
+}
+
+void turnDistanceR(double distance, double speed) {
+  RBASE.rotateFor(-distance, rotationUnits::deg, speed, velocityUnits::pct);
+  LBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
+}
 
 
 void driveStraight(double distance, double speed) {
@@ -16,9 +39,10 @@ void driveStraight(double distance, double speed) {
   while(LBASE.rotation(deg) < distance) {
 
     // keep straight
-      double angleError = 0 - INERTIAL.rotation(deg); // always stay at 0
+      double angleError = 0 - INERTIAL.rotation(deg); // find angle from 0
       double correctSpeed = angleError * 0.7;
       double maxCorrectSpeed = 4;
+      // make sure correction speed is not too fast
       if (correctSpeed > maxCorrectSpeed) { correctSpeed = maxCorrectSpeed; }
       if (correctSpeed < -maxCorrectSpeed) { correctSpeed = -maxCorrectSpeed; }
 
@@ -26,12 +50,8 @@ void driveStraight(double distance, double speed) {
       RBASE.spin(directionType::fwd, speed - correctSpeed, velocityUnits::pct);
   }
 
-  // There's 3 brake types you can use to get different effects when breaking.
-  // - coast glides to a stop
-  // - brake stops kinda hard
-  // - hold stops the motors hard
-  LBASE.stop(brakeType::coast);
-  RBASE.stop(brakeType::coast);
+  LBASE.stop();
+  RBASE.stop();
 
   // try to correct in case the loop doesn't end in the right place
   /*LBASE.spinToPosition(distance, deg, false);
@@ -43,12 +63,12 @@ void turnAngleR(double degrees, double speed) {
     LBASE.spin(directionType::fwd, speed, velocityUnits::pct);
     RBASE.spin(directionType::rev, speed, velocityUnits::pct);
   }
+  LBASE.stop();
+  RBASE.stop();
+
   // how far off it is at the end
   double finalError = degrees - INERTIAL.rotation();
   INERTIAL.setRotation(-finalError, deg); // reset it so that the correct angle is always at 0
-  
-  LBASE.stop();
-  RBASE.stop();
 }
 
 
@@ -57,12 +77,15 @@ void turnAngleL(double degrees, double speed) {
     LBASE.spin(directionType::rev, speed, velocityUnits::pct);
     RBASE.spin(directionType::fwd, speed, velocityUnits::pct);
   }
-  // how far off it is at the end
-  double finalError = degrees - INERTIAL.rotation();
-  INERTIAL.setRotation(-finalError , deg); // reset it so that the correct angle is always at 0
-  
   LBASE.stop();
   RBASE.stop();
+
+  // how far off it is at the end
+  double finalError = degrees - INERTIAL.rotation();
+  // usually you'd set the rotation back to 0
+  // but here it accounts for how off it was at the end
+  INERTIAL.setRotation(-finalError , deg);
+  
 }
 
 

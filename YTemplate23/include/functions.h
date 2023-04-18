@@ -12,8 +12,13 @@
 
 // BASIC MOVEMENT
 void goDistance(double distance, double speed);
+void goTime(double numSeconds, double speed);
+void turnDistanceL(double distance, double speed);
+void turnDistanceR(double distance, double speed);
+void curveL(double distance, double Lspeed, double Rspeed);
+void curveR(double distance, double Lspeed, double Rspeed);
+
+// INERTIAL SENSOR MOVEMENT
 void driveStraight(double distance, double speed); // maintain heading
 void turnAngleR(double degrees, double speed);
 void turnAngleL(double degrees, double speed);
-void curveL(double distance, double Lspeed, double Rspeed);
-void curveR(double distance, double Lspeed, double Rspeed);
