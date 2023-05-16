@@ -39,28 +39,30 @@ void pre_auton(void) {
   printf("Callibrating \n"); // print to computer terminal
   INERTIAL.calibrate();
   // Wait until the inertial sensor finishes calibrating
-  while (INERTIAL.isCalibrating()) {
+  //while (INERTIAL.isCalibrating()) {
     Brain.Screen.setPenColor(white);
     Brain.Screen.setFont(fontType::mono40);
     Brain.Screen.printAt(100, 75, "INERTIAL SENSOR");
-    Brain.Screen.printAt(100, 125, "CALIBRATING...");
+    Brain.Screen.printAt(100, 125, "CALIBRATING...");//125
     Brain.Screen.setFont(fontType::mono20);
-  }
+  //}
 
   // fill screen background
   Brain.Screen.setPenWidth(0);
-  Brain.Screen.setFillColor(color(20, 110, 50));
+  Brain.Screen.setFillColor(color(200, 150, 120));//20, 110, 50
+  Brain.Screen.setFillColor(color().hsv(194,0.5,0.8));//194,0.5,0.8
   Brain.Screen.drawRectangle(0, 0, 480, 272);
 
   // Draw Y
-  Brain.Screen.setPenColor(yellow);
+  Brain.Screen.setPenColor(white);
   Brain.Screen.setPenWidth(40);
+
   int x = 385; // amount to shift to the side
   Brain.Screen.drawLine(x, 125, x, 220);
   Brain.Screen.drawLine(x, 130, x-65, 35);
   Brain.Screen.drawLine(x, 130, x+65, 35);
 
-  Brain.Screen.setPenColor(white);
+  Brain.Screen.setPenColor(color::white);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -105,8 +107,8 @@ void usercontrol(void) {
     
       double leftSpeed = controller1.Axis3.value();
       double rightSpeed = controller1.Axis2.value();
-      LBASE.spin(forward, leftSpeed, velocityUnits::pct);
-      RBASE.spin(forward, rightSpeed, velocityUnits::pct);
+      LBASE.spin(directionType::fwd, leftSpeed, velocityUnits::pct);
+      RBASE.spin(directionType::fwd, rightSpeed, velocityUnits::pct);
 
 
     wait(20, msec); // Sleep the task for a short amount of time to
@@ -149,11 +151,11 @@ int main() {
     Brain.Screen.printAt(10, 30, "Rot: %.2f  ", INERTIAL.rotation(deg));
     Brain.Screen.printAt(10, 60, "Dist: %.2f  ", LBASE.rotation(deg));
     Brain.Screen.setFont(fontType::mono20);
-    Brain.Screen.printAt(10, 90,"DEBUG %d  ", true);
-    Brain.Screen.printAt(10, 110,"VALUES %d  ", 35);
-    Brain.Screen.printAt(10, 130,"GO %f  ", 1.5);
-    Brain.Screen.printAt(10, 150,"HERE %.2f  ", 3.14159); // round to 2 decimal places
-    Brain.Screen.printAt(10, 170,"BUTTON A PRESSING %d  ", controller1.ButtonA.pressing());
-    Brain.Screen.printAt(10, 190,"COUNTER %d  ", counter);
+    Brain.Screen.printAt(10, 90,"Debug %d  ", true);
+    Brain.Screen.printAt(10, 110,"Values %d  ", 35);
+    Brain.Screen.printAt(10, 130,"Go %f  ", 1.5);
+    Brain.Screen.printAt(10, 150,"Here %.2f  ", 3.14159); // round to 2 decimal places
+    Brain.Screen.printAt(10, 170,"Button A Pressing %d  ", controller1.ButtonA.pressing());
+    Brain.Screen.printAt(10, 190,"Counter %d  ", counter);
   }
 }

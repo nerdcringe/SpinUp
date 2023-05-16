@@ -6,10 +6,10 @@ using namespace vex; // use vex keywords by default
 void goTime(double numSeconds, double speed) {
   RBASE.spin(forward, speed, velocityUnits::pct);
   LBASE.spin(forward, speed, velocityUnits::pct);
-  wait(numSeconds, seconds);
+  wait(numSeconds, timeUnits::sec);
 
   // There's 3 brake types you can use to get different effects when breaking.
-  // - coast glides to a stop (pretty sure coast is the default braketype if you don't put anything in the parentheses)
+  // - coast glides to a stop
   // - brake stops kinda hard
   // - hold stops the motors hard
   LBASE.stop(brakeType::coast);
@@ -17,18 +17,19 @@ void goTime(double numSeconds, double speed) {
 }
 
 void goDistance(double distance, double speed) {
-  RBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
+  RBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct, false); // false means dont wait for completion
   LBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
+  // by default when you 
 }
 
 
 void turnDistanceL(double distance, double speed) {
-  RBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
+  RBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct, false);
   LBASE.rotateFor(-distance, rotationUnits::deg, speed, velocityUnits::pct);
 }
 
 void turnDistanceR(double distance, double speed) {
-  RBASE.rotateFor(-distance, rotationUnits::deg, speed, velocityUnits::pct);
+  RBASE.rotateFor(-distance, rotationUnits::deg, speed, velocityUnits::pct, false);
   LBASE.rotateFor(distance, rotationUnits::deg, speed, velocityUnits::pct);
 }
 
@@ -88,19 +89,18 @@ void turnAngleL(double degrees, double speed) {
   
 }
 
-
 // CURVING: left and right motors have different speed.
 
-void curveL(double leftDistance, double Lspeed, double Rspeed) {
-  RBASE.spin(directionType::fwd, Rspeed, velocityUnits::pct); // start right side
-  LBASE.rotateFor(leftDistance, rotationUnits::deg, Lspeed, velocityUnits::pct); // wait for left motors to reach leftDistance
-  RBASE.stop(); // stop right side
-}
-
-void curveR(double rightDistance, double Lspeed, double Rspeed) {
+void curveL(double rightDistance, double Lspeed, double Rspeed) {
   LBASE.spin(directionType::fwd, Lspeed, velocityUnits::pct);
   RBASE.rotateFor(rightDistance, rotationUnits::deg, Rspeed, velocityUnits::pct);
   LBASE.stop();
+}
+
+void curveR(double leftDistance, double Lspeed, double Rspeed) {
+  RBASE.spin(directionType::fwd, Rspeed, velocityUnits::pct); // start right side
+  LBASE.rotateFor(leftDistance, rotationUnits::deg, Lspeed, velocityUnits::pct); // wait for left motors to reach leftDistance
+  RBASE.stop(); // stop right side
 }
 
 
